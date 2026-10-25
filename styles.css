@@ -380,6 +380,19 @@ b{font-weight:600}
 .dq-row b{white-space:nowrap}
 .dq-row .grow{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 
+/* ===== Animaciones: salto al acertar, "no" al fallar, confeti al terminar ===== */
+@keyframes hop{0%{transform:scale(1)}35%{transform:scale(1.05) translateY(-3px)}65%{transform:scale(.98)}100%{transform:scale(1)}}
+@keyframes nope{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+@keyframes footup{from{transform:translateY(24px);opacity:.5}to{transform:none;opacity:1}}
+@keyframes fall{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(var(--x),108vh) rotate(var(--r))}}
+.anim-ok{animation:hop .45s ease}
+.anim-bad{animation:nope .45s ease}
+.ex-foot.ok,.ex-foot.bad{animation:footup .25s ease-out}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.confetti i{position:absolute;top:-16px;width:9px;height:15px;border-radius:2px;animation:fall var(--d) cubic-bezier(.25,.6,.5,1) forwards}
+.confetti i:nth-child(3n){width:11px;height:11px;border-radius:50%}
+@media (prefers-reduced-motion:reduce){.anim-ok,.anim-bad,.ex-foot.ok,.ex-foot.bad{animation:none}}
+
 /* ===== Toast y resumen ===== */
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translate(-50%,-170%);background:var(--surface);box-shadow:var(--shadow-lg);padding:12px 18px;border-radius:18px;font-weight:600;transition:transform .35s;z-index:50;max-width:90vw;text-align:center}
 #toast.show{transform:translate(-50%,0)}

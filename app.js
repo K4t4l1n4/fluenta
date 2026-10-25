@@ -46,7 +46,7 @@ const KEY = 'fluenta-v1';
 const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
-  rate: 0.9, name: '', theme: 'light', accent: '',
+  rate: 0.9, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
   writing: { texts: [], errs: {} }
 };
@@ -62,7 +62,9 @@ const today = () => S.days[dayStr()] || (S.days[dayStr()] = { xp: 0, ok: 0, fail
 const currentStreak = () => (S.lastDay === dayStr() || S.lastDay === yesterday()) ? S.streak : 0;
 function addXp(n) {
   rollover();
+  const before = S.dailyXp;
   S.xp += n; S.weekXp += n; S.dailyXp += n; today().xp += n;
+  if (before < S.goal && S.dailyXp >= S.goal) setTimeout(() => { sfx('star'); toast('🎯 ¡Cumpliste tu meta diaria!'); }, 900);
   const t = dayStr();
   if (S.lastDay !== t) { S.streak = S.lastDay === yesterday() ? S.streak + 1 : 1; S.lastDay = t; }
   save(); checkAch();
@@ -185,7 +187,7 @@ const ACH = [
 ];
 function checkAch() {
   for (const a of ACH) {
-    if (!S.ach[a.id] && a.test()) { S.ach[a.id] = dayStr(); save(); toast(`${a.icon} Logro desbloqueado: ${a.name}`); }
+    if (!S.ach[a.id] && a.test()) { S.ach[a.id] = dayStr(); save(); setTimeout(() => sfx('star'), 600); toast(`${a.icon} Logro desbloqueado: ${a.name}`); }
   }
 }
 
@@ -206,6 +208,59 @@ function speak(text, slow) {
   speechSynthesis.speak(u);
 }
 
+/* ===== Sonidos: los "toca" un mini sintetizador (sin archivos, funcionan sin internet) ===== */
+let AC = null, MASTER = null, listening = false;
+function audioCtx() {
+  if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); MASTER = AC.createGain(); MASTER.connect(AC.destination); }
+  if (AC.state === 'suspended') AC.resume().catch(() => {});
+  return AC;
+}
+function tone(ac, freq, start, dur, { type = 'triangle', vol = 0.25, slide = 0 } = {}) {
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + start;
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(MASTER); o.start(t); o.stop(t + dur + 0.05);
+}
+function swish(ac) {   /* ruido suave que sube y baja, como pasar una hoja */
+  const len = Math.floor(ac.sampleRate * 0.18), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  f.type = 'bandpass'; f.frequency.setValueAtTime(900, ac.currentTime); f.frequency.exponentialRampToValueAtTime(2600, ac.currentTime + 0.18);
+  g.gain.value = 0.35; src.buffer = buf; src.connect(f); f.connect(g); g.connect(MASTER); src.start();
+}
+const SOUNDS = {
+  ok: ac => { tone(ac, 659.25, 0, 0.14); tone(ac, 987.77, 0.08, 0.3); },                                        /* ding-ding */
+  great: ac => { tone(ac, 659.25, 0, 0.14); tone(ac, 830.61, 0.07, 0.16); tone(ac, 1318.5, 0.14, 0.45, { vol: 0.2 }); },
+  bad: ac => { tone(ac, 233.08, 0, 0.2, { type: 'sine', vol: 0.3, slide: 0.85 }); tone(ac, 174.61, 0.12, 0.3, { type: 'sine', vol: 0.25, slide: 0.85 }); },
+  win: ac => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(ac, f, i * 0.11, i === 3 ? 0.55 : 0.16)),     /* fanfarria */
+  star: ac => [1318.5, 1567.98, 2093, 2637].forEach((f, i) => tone(ac, f, i * 0.055, 0.25, { type: 'sine', vol: 0.14 })),
+  flip: ac => swish(ac)
+};
+function sfx(name) {
+  if (S.sound === false || listening || !SOUNDS[name]) return;
+  const ac = audioCtx(); if (!ac) return;
+  MASTER.gain.value = Math.max(0, Math.min(1, S.soundVol ?? 0.6));
+  try { SOUNDS[name](ac); } catch (e) {}
+}
+/* Después de un sonido, la voz espera un poquito para no mezclarse */
+const speakAfter = (text, slow) => setTimeout(() => speak(text, slow), S.sound === false ? 0 : 420);
+/* El iPhone solo deja sonar audio después de tocar la pantalla: se activa con el primer toque */
+document.addEventListener('pointerdown', () => { if (S.sound !== false) audioCtx(); }, { passive: true });
+
+/* ===== Animaciones: salto, "no" con la cabeza y confeti ===== */
+const reduceMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animate(el, cls) { if (!el || reduceMotion()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function confetti() {
+  if (reduceMotion()) return;
+  const cs = getComputedStyle(document.documentElement), colors = ['--accent', '--accent2', '--gold', '--ok', '--sky', '--bad'].map(v => cs.getPropertyValue(v).trim());
+  const box = document.createElement('div'); box.className = 'confetti';
+  box.innerHTML = Array.from({ length: 46 }, () => `<i style="left:${Math.random() * 100}%;background:${pick(colors)};--x:${Math.round(Math.random() * 160 - 80)}px;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(1.6 + Math.random() * 1.4).toFixed(2)}s;animation-delay:${(Math.random() * 0.35).toFixed(2)}s"></i>`).join('');
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 3600);
+}
+const celebrate = () => { sfx('win'); confetti(); };
+
 /* ===== Reconocimiento de voz: evalúa tu pronunciación ===== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
@@ -216,7 +271,8 @@ function listen(targets, cb) {
   rec = new SR();
   rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 5; rec.continuous = false;
   let done = false;
-  const finish = r => { if (done) return; done = true; cb(r); };
+  const finish = r => { if (done) return; done = true; listening = false; cb(r); };
+  listening = true;   /* mientras escucha, la app no hace sonidos */
   rec.onresult = e => {
     const res = e.results[0];
     const alts = Array.from({ length: res.length }, (_, i) => res[i].transcript);
@@ -495,12 +551,28 @@ function genExercises(les) {
     if (sentences.length) ex.push(mkSpeak(sentences[0]));
     else if (words.length) ex.push(mkSpeak(words[0]));
   } else {
-    shuffle(words).slice(0, 2).forEach(w => ex.push(mkMeaning(w)));
-    if (words.length) { ex.push(mkTranslate(pick(words))); ex.push(mkListen(pick(words))); }
-    shuffle(sentences).slice(0, 2).forEach(s => ex.push(mkOrder(s)));
-    if (sentences.length) { ex.push(mkFill(pick(sentences))); ex.push(mkSpeak(pick(sentences))); }
+    /* 20 ejercicios, de más fácil a más difícil: reconocer → producir → frases completas */
+    const recognize = [...words.map(mkMeaning), ...shuffle(words).slice(0, 3).map(mkListen)];           /* 6 + 3 */
+    const produce = [...shuffle(words).slice(0, 4).map(mkTranslate), ...shuffle(sentences).slice(0, 2).map(mkFill)];   /* 4 + 2 */
+    const build = [...sentences.map(mkOrder), ...(sentences.length ? [mkSpeak(pick(sentences))] : [])];  /* 4 + 1 */
+    return noRepeats([recognize, produce, build].flatMap(shuffle));
   }
   return shuffle(ex);
+}
+/* Que la misma palabra o frase no salga dos veces seguidas */
+function noRepeats(a) {
+  const clash = k => k > 0 && k < a.length && a[k].en === a[k - 1].en;
+  for (let i = 1; i < a.length; i++) {
+    if (!clash(i)) continue;
+    /* busca con quién cambiarlo: primero más adelante, para respetar el orden de fácil a difícil */
+    const order = [...Array(a.length).keys()].filter(j => j > i).concat([...Array(i).keys()]);
+    for (const j of order) {
+      [a[i], a[j]] = [a[j], a[i]];
+      if (![i, i + 1, j, j + 1].some(clash)) break;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+  }
+  return a;
 }
 function startLesson(id) {
   const les = findLesson(id);
@@ -570,9 +642,10 @@ function evaluateLesson() {
   else ok = ex.options[L.sel] === ex.answer;
   L.answered = true; L.ok = ok;
   track(ex.track, ex.en, ex.es, ok);
-  if (ok) { if (!ex.retry) L.first++; if (ex.type === 'order' || ex.type === 'fill') speak(ex.say); }
-  else L.queue.push({ ...ex, retry: true, options: ex.options && shuffle(ex.options), tokens: ex.tokens && shuffle(ex.tokens) });
+  if (ok) { if (!ex.retry) L.first++; sfx('ok'); if (ex.type === 'order' || ex.type === 'fill') speakAfter(ex.say); }
+  else { sfx('bad'); L.queue.push({ ...ex, retry: true, options: ex.options && shuffle(ex.options), tokens: ex.tokens && shuffle(ex.tokens) }); }
   renderLesson();
+  animate(ex.type === 'order' ? $('.answer-line') : $(`.opt[data-i="${L.sel}"]`), ok ? 'anim-ok' : 'anim-bad');
 }
 function nextExercise() {
   L.i++; L.sel = null; L.built = []; L.answered = false; L.ok = null; L.result = null; L.skipped = false; L.tracked = false;
@@ -593,17 +666,20 @@ function finishLesson() {
     stats: [[`+${xp}`, 'XP'], [acc + '%', 'A la primera'], ['★'.repeat(stars) + '☆'.repeat(3 - stars), 'Estrellas']],
     note: added ? `Se agregaron ${added} palabras nuevas a tus tarjetas 🃏` : (L.total < L.queue.length ? `Repetiste ${L.queue.length - L.total} ejercicios hasta acertarlos 💪` : '') });
   L = null;
+  celebrate();
 }
 function onLessonMic(r) {
   if (!L) return;
   const ex = L.queue[L.i];
   L.result = r;
+  let won = false;
   if (!r.error) {
     trackPron(r);
     if (!L.tracked) { track('speak', ex.en, ex.es, r.score >= 70); L.tracked = true; }
-    if (r.score >= 70 && !L.answered) { L.answered = true; L.ok = true; if (!ex.retry) L.first++; }
+    if (r.score >= 70 && !L.answered) { L.answered = true; L.ok = true; won = true; if (!ex.retry) L.first++; sfx(r.score >= 90 ? 'great' : 'ok'); }
   }
   renderLesson();
+  if (won) animate($('.speak-card'), 'anim-ok');
 }
 
 /* ===== HABLAR: diálogos ramificados y pronunciación ===== */
@@ -632,18 +708,18 @@ function startDialog(id, mode) {
   document.body.classList.add('focus'); window.scrollTo(0, 0);
   enterNode(d.start); renderDialog();
 }
-function enterNode(id) {
+function enterNode(id, afterSound) {
   const n = D.d.nodes[id];
   D.node = id; D.fb = null; D.result = null;
   D.log.push({ who: 'npc', en: n.npc[0], es: n.npc[1] });
   D.opts = n.end ? [] : shuffle(n.options);
   if (n.end) D.finished = true;
-  speak(n.npc[0]);
+  (afterSound ? speakAfter : speak)(n.npc[0]);
 }
 function chooseOption(o, score) {
   D.log.push({ who: 'me', en: o.en, es: o.es, score });
   D.steps++;
-  enterNode(o.go);
+  enterNode(o.go, true);
   renderDialog();
   setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 50);
 }
@@ -678,6 +754,7 @@ function finishDialog() {
     stats: [[`+${xp}`, 'XP'], [D.wrong, 'Errores'], [`${found}/${total}`, 'Finales']],
     note: firstEnd ? (found < total ? '¡Descubriste un final nuevo! Aún quedan caminos por explorar 🧭' : '¡Descubriste todos los finales de este diálogo! 🏅') : (D.mode === 'choose' ? 'Desafío: repítelo en modo 🎤 Hablar para ganar XP extra.' : '') });
   D = null;
+  celebrate();
 }
 function onDialogMic(r) {
   if (!D || D.finished) return;
@@ -686,6 +763,7 @@ function onDialogMic(r) {
   if (o && r.score >= 60) {
     trackType('dialog', true);
     D.bonus += r.score >= 90 ? 5 : 3;
+    sfx(r.score >= 90 ? 'great' : 'ok');
     chooseOption(o, r.score);
   } else { if (!r.error) trackType('dialog', false); D.result = r; renderDialog(); }
 }
@@ -708,9 +786,9 @@ function onPronMic(target, r) {
     trackPron(r); trackType('speak', r.score >= 70);
     S.pron[target] = Math.max(S.pron[target] || 0, r.score); save();
     const xp = r.score >= 90 ? 5 : r.score >= 70 ? 3 : 0;
-    if (xp) { addXp(xp); toast(`+${xp} XP 🎤`); }
+    if (xp) { addXp(xp); toast(`+${xp} XP 🎤`); sfx(r.score >= 90 ? 'great' : 'ok'); }
   }
-  if (tab === 'talk' && talkSeg === 'pron' && !D && !P) render();
+  if (tab === 'talk' && talkSeg === 'pron' && !D && !P) { render(); if (!r.error && r.score >= 70) animate($('.pron-result'), 'anim-ok'); }
 }
 
 /* ===== Sesión de pronunciación: 10 frases seguidas con resumen ===== */
@@ -753,8 +831,10 @@ function onSessionMic(r) {
     const [en, es] = P.list[P.i], prev = P.best[P.i];
     if (!prev || r.score > prev.score) P.best[P.i] = { en, es, score: r.score, words: r.words };
     S.pron[en] = Math.max(S.pron[en] || 0, r.score); save();
+    if (r.score >= 70) sfx(r.score >= 90 ? 'great' : 'ok');
   }
   renderPronSession();
+  if (!r.error && r.score >= 70) animate($('.pron-result'), 'anim-ok');
 }
 function nextPronPhrase() {
   const b = P.best[P.i];
@@ -779,6 +859,7 @@ function finishPronSession() {
       : done.length ? '<section class="card center"><b>🌟 ¡Pronunciaste bien todas las palabras!</b></section>' : ''}
     <button class="btn primary wide" data-act="tab" data-tab="talk" data-seg2="pron">Continuar</button>`;
   P = null;
+  celebrate();
 }
 
 /* ===== TARJETAS (sistema de cajas + repetición en la misma sesión) ===== */
@@ -836,6 +917,7 @@ function rateCard(v) {
     view().innerHTML = summaryHTML({ emoji: '🧠', title: '¡Repaso terminado!', back: 'cards',
       stats: [[`+${xp}`, 'XP'], [`${right}/${unique}`, 'A la primera'], [fixed, 'Reforzadas']],
       note: fixed ? 'Las tarjetas que fallaste volverán mañana para asegurarte de no olvidarlas.' : '¡Perfecto, ninguna fallada! 🌟' });
+    celebrate();
   } else render();
 }
 function dictHTML() {
@@ -1320,6 +1402,7 @@ async function sendWriting() {
   if (!W || !W.log.includes(m)) return;
   m.status = 'done'; m.errors = res.errors; m.online = res.online; W.busy = false;
   addXp(res.errors && !res.errors.length ? 5 : 3);
+  if (res.errors && !res.errors.length) sfx('ok');
   nextWriteQuestion(false);
 }
 function nextWriteQuestion(skip) {
@@ -1345,6 +1428,7 @@ function finishWrite() {
       : '<section class="card center"><b>🌟 ¡No tuviste errores en este tema!</b></section>'}
     <p class="muted small center">Tus errores quedaron en Progreso y en el archivo que exportas. Para una revisión más completa, exporta tu progreso y dile a Claude «revisa mi escritura».</p>
     <button class="btn primary wide" data-act="tab" data-tab="write">Continuar</button>`;
+  celebrate();
 }
 function renderWriteTab() {
   const wr = S.writing || { texts: [], errs: {} }, texts = wr.texts || [];
@@ -1518,11 +1602,14 @@ function renderProfile() {
   <section class="card"><h2>🏅 Logros</h2><div class="ach-grid">${ACH.map(a => `<div class="ach ${S.ach[a.id] ? 'on' : ''}"><span>${a.icon}</span><b>${a.name}</b><small>${a.desc}</small></div>`).join('')}</div></section>
   <section class="card"><h2>⚙️ Ajustes</h2>
     <label class="field">Tu nombre<input id="setName" value="${esc(S.name)}" placeholder="¿Cómo te llamas?" maxlength="20" autocomplete="off"></label>
+    <div class="field">Sonidos de la app<div class="seg mini"><button class="${S.sound !== false ? 'on' : ''}" data-act="sound" data-v="1">🔊 Sí</button><button class="${S.sound === false ? 'on' : ''}" data-act="sound" data-v="0">🔇 No</button></div>
+      <small class="muted block" style="margin-top:6px">Si tu iPhone está en silencio, no suenan.</small></div>
+    ${S.sound !== false ? `<label class="field">Volumen de los sonidos<input id="setSoundVol" type="range" min="0.1" max="1" step="0.1" value="${S.soundVol ?? 0.6}"></label>` : ''}
     <label class="field">Velocidad de la voz: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.5 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 2.6 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -1566,11 +1653,12 @@ const ACTIONS = {
   dopt: el => {
     if (!D || D.finished) return;
     const o = D.opts[+el.dataset.i];
-    if (o.go) { trackType('dialog', true); save(); chooseOption(o); }
+    if (o.go) { trackType('dialog', true); save(); sfx('ok'); chooseOption(o); }
     else {
-      D.wrong++; trackType('dialog', false);
+      D.wrong++; trackType('dialog', false); sfx('bad');
       const st = S.dlg[D.d.id] || (S.dlg[D.d.id] = { plays: 0, wrong: {} }); st.wrong[o.en] = (st.wrong[o.en] || 0) + 1; save();
       D.fb = o.fb || 'Esa respuesta no encaja aquí. ¡Prueba otra!'; renderDialog();
+      animate($(`.opt[data-i="${el.dataset.i}"]`), 'anim-bad');
     }
   },
   dskip: () => { if (!D || D.finished) return; chooseOption(pick(D.opts.filter(o => o.go))); },
@@ -1578,7 +1666,7 @@ const ACTIONS = {
   tr: el => { const i = +el.dataset.i; D.showEs[i] = !D.showEs[i]; renderDialog(); },
   pphrase: el => { pronCurrent = el.dataset.t; pronResult = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); speak(pronCurrent); },
   startrev: el => startReview(!!el.dataset.all),
-  flip: () => { F.flip = !F.flip; render(); if (F.flip) speak(S.cards[F.queue[F.i]].en); },
+  flip: () => { F.flip = !F.flip; sfx('flip'); render(); if (F.flip) speakAfter(S.cards[F.queue[F.i]].en); },
   rate: el => rateCard(el.dataset.v === '1'),
   write: el => startWrite(el.dataset.id),
   wsend: () => sendWriting(),
@@ -1608,6 +1696,7 @@ const ACTIONS = {
   export: () => exportData(),
   import: () => { const f = $('#importFile'); f.value = ''; f.click(); },
   theme: el => { S.theme = el.dataset.v; save(); applyTheme(); render(); },
+  sound: el => { S.sound = el.dataset.v === '1'; save(); render(); if (S.sound) sfx('ok'); },
   accent: el => { const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
@@ -1636,9 +1725,11 @@ document.addEventListener('input', e => {
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
   else if (t.id === 'setAccent') { S.accent = t.value; applyTheme(); }   /* se ve al instante mientras eliges */
+  else if (t.id === 'setSoundVol') { S.soundVol = +t.value; save(); }
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'setGoal') { S.goal = +e.target.value; save(); }
+  else if (e.target.id === 'setSoundVol') sfx('ok');   /* para escuchar cómo queda el volumen */
   else if (e.target.id === 'setAccent') { S.accent = e.target.value.toLowerCase() === DEFAULT_ACCENT ? '' : e.target.value.toLowerCase(); save(); applyTheme(); render(); toast('🎨 Color cambiado'); }
   else if (e.target.id === 'importFile') {
     const file = e.target.files && e.target.files[0]; if (!file) return;
