@@ -356,23 +356,24 @@ function accentPalette(hex) {
   const WHITE = [255, 255, 255];
   let [h, s, l] = rgbHsl(hexRgb(hex));
   while (l > 18 && contrast(hslRgb(h, s, l), WHITE) < 3) l -= 2;   /* que se lea el texto blanco de los botones */
-  const gray = s < 12, tint = (v, g = 8) => gray ? g : v;
+  const gray = s < 12, tint = v => gray ? 0 : v;   /* negro, gris o blanco: grises sin ningún tono */
+  if (gray) s = 0;
   const light = {
-    '--accent': hsl(h, s, l), '--accent2': hsl(h, s, Math.min(l + 12, 78)), '--accent-soft': hsl(h, tint(90, 10), 95), '--accent-ink': hsl(h, s, Math.max(l - 15, 20)),
-    '--accent-rgb': hslRgb(h, s, l).join(','), '--shadow-rgb': hslRgb(h, tint(40, 10), 45).join(','),
+    '--accent': hsl(h, s, l), '--accent2': hsl(h, s, Math.min(l + 12, 78)), '--accent-soft': hsl(h, tint(90), 94), '--accent-ink': hsl(h, s, Math.max(l - 15, 20)),
+    '--accent-rgb': hslRgb(h, s, l).join(','), '--shadow-rgb': hslRgb(h, tint(40), 45).join(','),
     '--grad': `linear-gradient(135deg,${hsl(h, s, l + 9)} 0%,${hsl(h, s, l)} 55%,${hsl(h, s, l - 6)} 100%)`,
     '--hero': `linear-gradient(140deg,${hsl(h, s, Math.min(l + 20, 82))} 0%,${hsl(h, s, l + 6)} 45%,${hsl(h, s, l - 3)} 100%)`,
     '--bg1': hsl(h, tint(100), 96), '--bg2': hsl(h - 30, tint(100), 93), '--surface2': hsl(h, tint(100), 98), '--line': hsl(h, tint(70), 93),
-    '--text': hsl(h - 15, tint(35, 10), 20), '--muted': hsl(h - 15, tint(20, 6), 56)
+    '--text': hsl(h - 15, tint(35), 20), '--muted': hsl(h - 15, tint(20), 56)
   };
-  const surf = hslRgb(h - 10, tint(38, 6), 21);
-  let ld = Math.max(l + 8, 58); while (ld < 88 && contrast(hslRgb(h, s, ld), surf) < 4) ld += 2;   /* que se lea sobre el fondo oscuro */
-  const sd = gray ? s : Math.max(s, 45) * 0.66;
+  /* Modo oscuro: el fondo negro y las cajas grises vienen de styles.css; aquí solo va el color */
+  const surf = [28, 28, 30];
+  let ld = Math.max(l + 8, 58); while (ld < 88 && contrast(hslRgb(h, s, ld), surf) < 4) ld += 2;   /* que se lea sobre las cajas grises */
+  const sd = gray ? s : Math.max(s, 45) * 0.66, lg = Math.max(l, 38);   /* botones: que no se pierdan en el negro */
   const dark = {
-    '--accent': hsl(h, s, ld), '--accent2': hsl(h, s, Math.min(ld + 8, 90)), '--accent-soft': hsl(h, tint(42), 29), '--accent-ink': hsl(h, tint(100, 10), 86),
-    '--hero': `linear-gradient(140deg,${hsl(h, sd, 50)} 0%,${hsl(h, sd, 40)} 55%,${hsl(h, sd * 1.05, 30)} 100%)`,
-    '--bg1': hsl(h - 10, tint(38, 6), 12), '--bg2': hsl(h - 10, tint(38, 6), 17), '--surface': hsl(h - 10, tint(38, 6), 21), '--surface2': hsl(h - 10, tint(35, 6), 26), '--line': hsl(h - 10, tint(35, 6), 31),
-    '--text': hsl(h, tint(100, 10), 97), '--muted': hsl(h - 10, tint(40, 8), 72), '--glass': hsl(h - 10, tint(38, 6), 21, 0.82)
+    '--accent': hsl(h, s, ld), '--accent2': hsl(h, s, Math.min(ld + 8, 90)), '--accent-soft': hsl(h, tint(42), 26), '--accent-ink': hsl(h, tint(100), 86),
+    '--grad': `linear-gradient(135deg,${hsl(h, s, lg + 9)} 0%,${hsl(h, s, lg)} 55%,${hsl(h, s, lg - 6)} 100%)`,
+    '--hero': `linear-gradient(140deg,${hsl(h, sd, 50)} 0%,${hsl(h, sd, 40)} 55%,${hsl(h, sd * 1.05, 30)} 100%)`
   };
   return { light, dark };
 }
@@ -1521,7 +1522,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.4 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 2.5 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 

@@ -13,16 +13,16 @@
   --glass:rgba(255,255,255,.78); --radius:24px;
   color-scheme:light;
 }
-/* ===== Modo oscuro ===== */
+/* ===== Modo oscuro: fondo negro puro y cajas en gris neutro (sin tonos de color) ===== */
 :root[data-theme="dark"]{
-  --bg1:#13142a; --bg2:#1a1c3b;
-  --surface:#212349; --surface2:#2a2d5a; --line:#33366a;
-  --text:#eef0ff; --muted:#9ea3d3;
+  --bg1:#000000; --bg2:#000000;
+  --surface:#1c1c1e; --surface2:#2a2a2d; --line:#333336;
+  --text:#f5f5f7; --muted:#a1a1a6;
   --accent:#8f72ff; --accent2:#a993ff; --accent-soft:#2f2a68; --accent-ink:#c7b8ff;
   --hero:linear-gradient(140deg,#5b44c9 0%,#4630a8 55%,#2d2380 100%);
   --ok-soft:rgba(23,179,136,.16); --bad-soft:rgba(239,85,119,.16); --gold-soft:rgba(244,180,63,.14); --sky-soft:rgba(90,168,245,.15);
   --shadow:0 10px 30px rgba(0,0,0,.30); --shadow-lg:0 16px 40px rgba(0,0,0,.45);
-  --glass:rgba(33,35,73,.82);
+  --glass:rgba(28,28,30,.84);
   color-scheme:dark;
 }
 
