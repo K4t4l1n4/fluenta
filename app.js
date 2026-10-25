@@ -46,7 +46,7 @@ const KEY = 'fluenta-v1';
 const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
-  rate: 0.9, name: '', theme: 'light',
+  rate: 0.9, name: '', theme: 'light', accent: '',
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
   writing: { texts: [], errs: {} }
 };
@@ -328,12 +328,69 @@ function summaryHTML({ emoji, title, stats, note, back }) {
 const topBar = (title, right = '') => `<header class="page-top"><h1>${title}</h1>${right}</header>`;
 const ring = (p, inner, cls = '') => `<div class="ring ${cls}" style="--p:${p}"><span>${inner}</span></div>`;
 
-/* ===== Tema claro / oscuro ===== */
+/* ===== Tema: claro / oscuro y color principal =====
+   El color elegido se convierte en toda una paleta (fondos, botones, degradados)
+   para el modo claro y el oscuro, cuidando que el texto blanco siempre se lea. */
+const DEFAULT_ACCENT = '#7b5cf0';
+const ACCENTS = [['#7b5cf0', 'Lavanda'], ['#3b6fe0', 'Azul'], ['#0d9488', 'Turquesa'], ['#16a34a', 'Verde'], ['#db2777', 'Rosa'], ['#e2574c', 'Coral'], ['#dd6b10', 'Naranja'], ['#8b3fc9', 'Uva']];
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const relLum = rgb => rgb.map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((a, c, i) => a + c * [0.2126, 0.7152, 0.0722][i], 0);
+const contrast = (a, b) => { const [x, y] = [relLum(a), relLum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+function rgbHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = 60 * (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4);
+  }
+  return [h, s * 100, l * 100];
+}
+function hslRgb(h, s, l) {
+  s = Math.max(0, Math.min(100, s)) / 100; l = Math.max(0, Math.min(100, l)) / 100; h = (h % 360 + 360) % 360;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  return [0, 8, 4].map(n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))));
+}
+const hsl = (h, s, l, a) => `rgb(${hslRgb(h, s, l).join(' ')}${a != null ? ` / ${a}` : ''})`;
+function accentPalette(hex) {
+  const WHITE = [255, 255, 255];
+  let [h, s, l] = rgbHsl(hexRgb(hex));
+  while (l > 18 && contrast(hslRgb(h, s, l), WHITE) < 3) l -= 2;   /* que se lea el texto blanco de los botones */
+  const gray = s < 12, tint = (v, g = 8) => gray ? g : v;
+  const light = {
+    '--accent': hsl(h, s, l), '--accent2': hsl(h, s, Math.min(l + 12, 78)), '--accent-soft': hsl(h, tint(90, 10), 95), '--accent-ink': hsl(h, s, Math.max(l - 15, 20)),
+    '--accent-rgb': hslRgb(h, s, l).join(','), '--shadow-rgb': hslRgb(h, tint(40, 10), 45).join(','),
+    '--grad': `linear-gradient(135deg,${hsl(h, s, l + 9)} 0%,${hsl(h, s, l)} 55%,${hsl(h, s, l - 6)} 100%)`,
+    '--hero': `linear-gradient(140deg,${hsl(h, s, Math.min(l + 20, 82))} 0%,${hsl(h, s, l + 6)} 45%,${hsl(h, s, l - 3)} 100%)`,
+    '--bg1': hsl(h, tint(100), 96), '--bg2': hsl(h - 30, tint(100), 93), '--surface2': hsl(h, tint(100), 98), '--line': hsl(h, tint(70), 93),
+    '--text': hsl(h - 15, tint(35, 10), 20), '--muted': hsl(h - 15, tint(20, 6), 56)
+  };
+  const surf = hslRgb(h - 10, tint(38, 6), 21);
+  let ld = Math.max(l + 8, 58); while (ld < 88 && contrast(hslRgb(h, s, ld), surf) < 4) ld += 2;   /* que se lea sobre el fondo oscuro */
+  const sd = gray ? s : Math.max(s, 45) * 0.66;
+  const dark = {
+    '--accent': hsl(h, s, ld), '--accent2': hsl(h, s, Math.min(ld + 8, 90)), '--accent-soft': hsl(h, tint(42), 29), '--accent-ink': hsl(h, tint(100, 10), 86),
+    '--hero': `linear-gradient(140deg,${hsl(h, sd, 50)} 0%,${hsl(h, sd, 40)} 55%,${hsl(h, sd * 1.05, 30)} 100%)`,
+    '--bg1': hsl(h - 10, tint(38, 6), 12), '--bg2': hsl(h - 10, tint(38, 6), 17), '--surface': hsl(h - 10, tint(38, 6), 21), '--surface2': hsl(h - 10, tint(35, 6), 26), '--line': hsl(h - 10, tint(35, 6), 31),
+    '--text': hsl(h, tint(100, 10), 97), '--muted': hsl(h - 10, tint(40, 8), 72), '--glass': hsl(h - 10, tint(38, 6), 21, 0.82)
+  };
+  return { light, dark };
+}
+const currentAccent = () => S.accent && /^#[0-9a-f]{6}$/i.test(S.accent) ? S.accent.toLowerCase() : DEFAULT_ACCENT;
+function applyAccent() {
+  const hex = currentAccent();
+  let st = $('#accentVars');
+  if (hex === DEFAULT_ACCENT) { if (st) st.remove(); return; }   /* el lavanda original queda tal cual en styles.css */
+  if (!st) { st = document.createElement('style'); st.id = 'accentVars'; document.head.appendChild(st); }
+  const { light, dark } = accentPalette(hex), css = o => Object.entries(o).map(([k, v]) => `${k}:${v}`).join(';');
+  st.textContent = `:root{${css(light)}}:root[data-theme="dark"]{${css(dark)}}`;
+}
 const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 function applyTheme() {
   const t = S.theme === 'auto' ? (darkMQ && darkMQ.matches ? 'dark' : 'light') : S.theme;
   document.documentElement.dataset.theme = t;
-  const m = $('meta[name="theme-color"]'); if (m) m.content = t === 'dark' ? '#14152b' : '#ece9ff';
+  applyAccent();
+  const m = $('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue('--bg1').trim() || (t === 'dark' ? '#13142a' : '#eeebff');
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => S.theme === 'auto' && applyTheme());
 
@@ -1441,9 +1498,18 @@ function renderProfile() {
   const lv = levelInfo();
   const stat = (i, v, l) => `<div class="stat">${i}<b>${v}</b><small>${l}</small></div>`;
   const th = (v, l) => `<button class="${S.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}">${l}</button>`;
+  const accent = currentAccent(), preset = ACCENTS.find(a => a[0] === accent);
   return topBar('Perfil', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
   <section class="card profile-head"><div class="avatar lg">${esc((S.name || '🙂')[0].toUpperCase())}</div><div><b>${esc(S.name || 'Estudiante')}</b><p class="muted small">Nivel ${lv.L} · Liga ${leagueName()} · ${Object.keys(S.ach).length}/${ACH.length} logros</p></div></section>
   <div class="stats">${stat('🔥', currentStreak(), 'Racha')}${stat('⭐', S.xp, 'XP total')}${stat('📚', allLessons().filter(l => S.done[l.id]).length + '/' + allLessons().length, 'Lecciones')}${stat('🃏', Object.keys(S.cards).length, 'Palabras')}${stat('💬', Object.keys(S.dialogs).length + '/' + DIALOGS.length, 'Diálogos')}${stat('🎤', S.bestPron + '%', 'Mejor voz')}</div>
+  <section class="card"><h2>🎨 Apariencia</h2>
+    <div class="field">Modo<div class="seg mini">${th('light', '☀️ Claro')}${th('dark', '🌙 Oscuro')}${th('auto', '⚙️ Auto')}</div>
+      ${S.theme === 'auto' ? '<small class="muted block" style="margin-top:6px">Sigue el modo claro u oscuro de tu iPhone.</small>' : ''}</div>
+    <div class="field">Color principal
+      <div class="swatches">${ACCENTS.map(([hex, name]) => `<button class="swatch ${accent === hex ? 'on' : ''}" style="--sw:${hex}" data-act="accent" data-v="${hex}" aria-label="${name}"></button>`).join('')}</div>
+      <div class="btn ghost wide other-color"><span class="dot" style="--sw:${accent}"></span>🎨 Otro color<input type="color" id="setAccent" value="${accent}" aria-label="Elegir otro color"></div>
+      <small class="muted block center" style="margin-top:8px">Color actual: <b>${esc(preset ? preset[1] : 'elegido por ti')}</b>${accent !== DEFAULT_ACCENT ? ' · <button class="link-inline" data-act="accent" data-v="' + DEFAULT_ACCENT + '">volver al original</button>' : ''}</small></div>
+  </section>
   <section class="card"><h2>💾 Respaldo</h2>
     <p class="muted small">Exporta un archivo con todo tu progreso. Sirve como copia de seguridad y para que Claude revise tus errores y te prepare refuerzos.${S.lastExport ? ` Última copia: ${new Date(S.lastExport).toLocaleDateString('es-CL')}.` : ''}</p>
     <button class="btn primary wide" data-act="export">${ic('upload', 'sm')} Exportar progreso</button>
@@ -1451,12 +1517,11 @@ function renderProfile() {
   <section class="card"><h2>🏅 Logros</h2><div class="ach-grid">${ACH.map(a => `<div class="ach ${S.ach[a.id] ? 'on' : ''}"><span>${a.icon}</span><b>${a.name}</b><small>${a.desc}</small></div>`).join('')}</div></section>
   <section class="card"><h2>⚙️ Ajustes</h2>
     <label class="field">Tu nombre<input id="setName" value="${esc(S.name)}" placeholder="¿Cómo te llamas?" maxlength="20" autocomplete="off"></label>
-    <div class="field">Apariencia<div class="seg mini">${th('light', '☀️ Claro')}${th('dark', '🌙 Oscuro')}${th('auto', '⚙️ Auto')}</div></div>
     <label class="field">Velocidad de la voz: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.3 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 2.4 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -1542,6 +1607,7 @@ const ACTIONS = {
   export: () => exportData(),
   import: () => { const f = $('#importFile'); f.value = ''; f.click(); },
   theme: el => { S.theme = el.dataset.v; save(); applyTheme(); render(); },
+  accent: el => { const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
 document.addEventListener('click', e => {
@@ -1568,9 +1634,11 @@ document.addEventListener('input', e => {
   else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
+  else if (t.id === 'setAccent') { S.accent = t.value; applyTheme(); }   /* se ve al instante mientras eliges */
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'setGoal') { S.goal = +e.target.value; save(); }
+  else if (e.target.id === 'setAccent') { S.accent = e.target.value.toLowerCase() === DEFAULT_ACCENT ? '' : e.target.value.toLowerCase(); save(); applyTheme(); render(); toast('🎨 Color cambiado'); }
   else if (e.target.id === 'importFile') {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     const r = new FileReader(); r.onload = () => importText(String(r.result)); r.readAsText(file);
@@ -1581,7 +1649,7 @@ document.addEventListener('change', e => {
 document.body.insertAdjacentHTML('beforeend', `<button id="dictFab" class="dict-fab" data-act="dict" aria-label="Diccionario">${ic('dict')}</button><div id="sheet" class="sheet-wrap"></div>`);
 new MutationObserver(placeFab).observe($('#view'), { childList: true });
 window.addEventListener('resize', placeFab);
-const isTyping = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'submit'].includes(el.type)));
+const isTyping = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'submit', 'color'].includes(el.type)));
 document.addEventListener('focusin', e => { typing = isTyping(e.target) && !e.target.closest('#sheet'); placeFab(); });
 document.addEventListener('focusout', () => setTimeout(() => { typing = isTyping(document.activeElement) && !document.activeElement.closest('#sheet'); placeFab(); }, 50));
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && SHEET.open) closeSheet(); });
