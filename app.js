@@ -43,7 +43,7 @@ const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
   rate: 0.9, name: '', theme: 'light',
-  items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0
+  items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: []
 };
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT));
 let S = load();
@@ -131,7 +131,16 @@ function leagueHTML(table, limit) {
 const allLessons = () => LESSONS.flatMap(u => u.lessons);
 const allWords = () => allLessons().flatMap(l => l.words);
 const allSentences = () => allLessons().flatMap(l => l.sentences);
-const allPhrases = () => PRON.flatMap(c => c.phrases);
+const allPhrases = () => PRON.flatMap(c => c.phrases.map(p => p[0]));
+const PHRASE_ES = new Map(PRON.flatMap(c => c.phrases));
+/* Traducción de una palabra suelta según el contenido de la app */
+function gloss(w) {
+  const k = String(w).toLowerCase();
+  const hit = allWords().find(x => x[0].toLowerCase() === k);
+  if (hit) return hit[1];
+  const c = Object.values(S.cards).find(x => x.en.toLowerCase() === k);
+  return c ? c.es : '';
+}
 const dialogEnds = d => Object.keys(d.nodes).filter(k => d.nodes[k].end);
 function autoLesson() {
   const weak = weakItems(14); if (!weak.length) return null;
@@ -277,10 +286,10 @@ const sayBtn = (t, cls = '') => `<button class="say ${cls}" data-act="say" data-
 
 /* ===== Navegación ===== */
 let tab = 'home', talkSeg = 'dialogs', cardSeg = 'review', statSeg = 'week', dictQ = '';
-let pronCurrent = null, pronResult = null, L = null, D = null, F = null;
+let pronCurrent = null, pronResult = null, L = null, D = null, F = null, P = null;
 const view = () => $('#view');
 function go(t) {
-  tab = t; L = null; D = null; F = null;
+  tab = t; L = null; D = null; F = null; P = null;
   document.body.classList.remove('focus');
   try { rec && rec.abort(); } catch (e) {}
   render(); window.scrollTo(0, 0);
@@ -475,8 +484,10 @@ function renderLesson() {
   let foot = '';
   if (L.answered) {
     const title = L.skipped ? 'Sin problema 👌' : L.ok ? pick(['¡Correcto! 🎉', '¡Excelente! ⭐', '¡Muy bien! 💪', '¡Perfecto! 🙌']) : 'Casi… 😅';
-    const bodyTxt = L.skipped ? 'La practicarás en otra ocasión.' : L.ok ? (ex.type === 'order' || ex.type === 'fill' ? esc(ex.say) : '')
-      : `Respuesta correcta: <b>${esc(ex.type === 'fill' ? ex.say : ex.answer)}</b><br><small>La repetirás al final de la lección.</small>`;
+    const pair = `<b>${esc(ex.en)}</b> = ${esc(ex.es)}`, sentence = ex.type === 'order' || ex.type === 'fill';
+    const bodyTxt = L.skipped ? 'La practicarás en otra ocasión.'
+      : L.ok ? (sentence ? esc(ex.say) : ex.type === 'speak' ? '' : pair)
+      : `Respuesta correcta: ${sentence ? `<b>${esc(ex.say)}</b>` : pair}<br><small>La repetirás al final de la lección.</small>`;
     foot = `<div class="fb-title">${title}</div>${bodyTxt ? `<div class="fb-body">${bodyTxt}</div>` : ''}`;
   }
   const showBtn = ex.type !== 'speak' || L.answered;
@@ -562,7 +573,7 @@ function enterNode(id) {
   speak(n.npc[0]);
 }
 function chooseOption(o, score) {
-  D.log.push({ who: 'me', en: o.en, score });
+  D.log.push({ who: 'me', en: o.en, es: o.es, score });
   D.steps++;
   enterNode(o.go);
   renderDialog();
@@ -572,7 +583,7 @@ function renderDialog() {
   const valid = D.opts.filter(o => o.go);
   const chat = D.log.map((m, i) => m.who === 'npc'
     ? `<div class="bubble npc"><div class="row gap-s">${sayBtn(m.en, 'sm')}<span class="grow">${esc(m.en)}</span></div><button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button></div>`
-    : `<div class="bubble me">${esc(m.en)}${m.score != null ? `<span class="score-tag">🎤 ${m.score}%</span>` : ''}</div>`).join('');
+    : `<div class="bubble me">${esc(m.en)}${m.score != null ? `<span class="score-tag">🎤 ${m.score}%</span>` : ''}${m.es ? `<button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button>` : ''}</div>`).join('');
   let input;
   if (D.finished) {
     input = `<div class="end-card"><b>🎉 ¡Fin de la conversación!</b><p class="muted small">Llegaste a un final. Repite el diálogo y responde distinto para descubrir otros caminos.</p><button class="btn primary wide" data-act="dfinish">Terminar</button></div>`;
@@ -610,16 +621,18 @@ function onDialogMic(r) {
     chooseOption(o, r.score);
   } else { if (!r.error) trackType('dialog', false); D.result = r; renderDialog(); }
 }
+const colorWords = r => r.words.map(w => `<span class="${w.ok ? 'w-ok' : 'w-bad'}">${esc(w.w)}</span>`).join(' ');
 function pronHTML() {
-  const cur = pronCurrent || PRON[0].phrases[0];
-  const wordsHTML = pronResult && !pronResult.error ? pronResult.words.map(w => `<span class="${w.ok ? 'w-ok' : 'w-bad'}">${esc(w.w)}</span>`).join(' ') : esc(cur);
+  const cur = pronCurrent || PRON[0].phrases[0][0], curEs = PHRASE_ES.get(cur);
+  const weakN = weakPhrases(10).length;
   return `<div class="card practice"><div class="speaker-wrap"><button class="speaker-big" data-act="say" data-t="${esc(cur)}" aria-label="Escuchar">${ic('volume')}</button></div>
-    <div class="practice-phrase">${wordsHTML}</div>${micControls(cur, 'pron')}
+    <div class="practice-phrase">${pronResult && !pronResult.error ? colorWords(pronResult) : esc(cur)}</div>${curEs ? `<p class="muted center">${esc(curEs)}</p>` : ''}${micControls(cur, 'pron')}
     <div id="micres">${pronResult ? pronResultHTML(pronResult) : '<p class="muted center small">Escucha, luego toca el micrófono y repite</p>'}</div>
     <form class="row gap" data-form="custom" style="margin-top:14px"><input name="phrase" placeholder="Escribe tu propia frase en inglés…" autocomplete="off" autocapitalize="off"><button class="btn ghost">Usar</button></form></div>
-    <p class="muted small">ℹ️ La app compara lo que entiende el reconocimiento de voz con la frase. Las palabras en rojo son las que debes practicar.</p>` +
-    PRON.map(c => `<h3>${c.icon} ${esc(c.title)}</h3><p class="muted small">${esc(c.tip)}</p><div class="phrase-list">${c.phrases.map(p =>
-      `<button class="phrase ${p === cur ? 'on' : ''}" data-act="pphrase" data-t="${esc(p)}"><span>${esc(p)}</span>${S.pron[p] != null ? `<span class="score-tag">${S.pron[p]}%</span>` : ''}</button>`).join('')}</div>`).join('');
+    <p class="muted small">ℹ️ La app compara lo que entiende el reconocimiento de voz con la frase. Las palabras en rojo son las que debes practicar. Con <b>▶ Sesión</b> practicas 10 frases seguidas y al final ves tu resumen.</p>
+    ${weakN >= 3 ? `<button class="card action-card" data-act="psession" data-g="weak"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Sesión de mis errores</b><small class="muted block">${weakN} frases con las palabras que más te cuestan</small></span>${ic('play', 'sm accent')}</button>` : ''}` +
+    PRON.map(c => `<div class="row between pron-head"><h3>${c.icon} ${esc(c.title)}</h3><button class="add-btn" data-act="psession" data-g="${c.id}">▶ Sesión</button></div><p class="muted small">${esc(c.tip)}</p><div class="phrase-list">${c.phrases.map(([en, es]) =>
+      `<button class="phrase ${en === cur ? 'on' : ''}" data-act="pphrase" data-t="${esc(en)}"><span class="grow">${esc(en)}<small class="muted block">${esc(es)}</small></span>${S.pron[en] != null ? `<span class="score-tag">${S.pron[en]}%</span>` : ''}</button>`).join('')}</div>`).join('');
 }
 function onPronMic(target, r) {
   pronResult = r;
@@ -629,7 +642,75 @@ function onPronMic(target, r) {
     const xp = r.score >= 90 ? 5 : r.score >= 70 ? 3 : 0;
     if (xp) { addXp(xp); toast(`+${xp} XP 🎤`); }
   }
-  if (tab === 'talk' && talkSeg === 'pron' && !D) render();
+  if (tab === 'talk' && talkSeg === 'pron' && !D && !P) render();
+}
+
+/* ===== Sesión de pronunciación: 10 frases seguidas con resumen ===== */
+const PS_TRIES = 2;
+function weakPhrases(n) {
+  const weak = new Set(weakSounds(20).map(([w]) => w));
+  if (!weak.size) return [];
+  const hits = PRON.flatMap(c => c.phrases).map(p => ({ p, n: tokens(p[0]).filter(t => weak.has(clean(t))).length })).filter(x => x.n);
+  return shuffle(hits).sort((a, b) => b.n - a.n).slice(0, n).map(x => x.p);
+}
+function startPronSession(gid) {
+  let list, title;
+  if (gid === 'weak') {
+    list = weakPhrases(10); title = 'Mis errores';
+    if (list.length < 3) { toast('Aún no hay suficientes palabras difíciles. ¡Sigue practicando!'); return; }
+  } else {
+    const g = PRON.find(c => c.id === gid); if (!g) return;
+    list = shuffle(g.phrases).slice(0, 10); title = `${g.icon} ${g.title}`;
+  }
+  P = { gid, title, list, i: 0, tries: 0, result: null, best: [] };
+  document.body.classList.add('focus'); window.scrollTo(0, 0);
+  renderPronSession(); speak(list[0][0]);
+}
+function renderPronSession() {
+  const [en, es] = P.list[P.i], r = P.result, best = P.best[P.i], left = PS_TRIES - P.tries;
+  view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="bar grow"><i style="width:${pct(P.i, P.list.length)}%"></i></div><span class="muted small">${P.i + 1}/${P.list.length}</span></div>
+    <div class="ex"><p class="ex-prompt">${esc(P.title)} <span class="muted small">· Sesión</span></p>
+    <div class="card practice"><div class="practice-phrase">${r && !r.error ? colorWords(r) : esc(en)}</div><p class="muted center">${esc(es)}</p>
+      ${left > 0 ? micControls(en, 'psession') : `<div class="speak-controls">${sayBtn(en, 'lg')}</div>`}
+      <div id="micres">${r ? pronResultHTML(r) : '<p class="muted center small">Escucha, luego toca el micrófono y repite</p>'}</div>
+      <p class="muted center small">${left > 0 ? (P.tries ? `Te queda ${left} intento. Se guarda tu mejor puntaje.` : `Tienes ${PS_TRIES} intentos.`) : 'Usaste tus 2 intentos. ¡Sigue con la próxima!'}</p></div>
+    ${!best ? '<button class="link" data-act="psskip">Saltar esta frase</button>' : ''}</div>
+    <footer class="ex-foot"><button class="btn primary wide" data-act="psnext" ${best ? '' : 'disabled'}>${P.i + 1 < P.list.length ? 'Siguiente frase' : 'Ver resumen'}</button></footer>`;
+}
+function onSessionMic(r) {
+  if (!P) return;
+  P.result = r;
+  if (!r.error) {
+    trackPron(r); P.tries++;
+    const [en, es] = P.list[P.i], prev = P.best[P.i];
+    if (!prev || r.score > prev.score) P.best[P.i] = { en, es, score: r.score, words: r.words };
+    S.pron[en] = Math.max(S.pron[en] || 0, r.score); save();
+  }
+  renderPronSession();
+}
+function nextPronPhrase() {
+  const b = P.best[P.i];
+  if (b && !b.skipped) trackType('speak', b.score >= 70);
+  P.i++; P.tries = 0; P.result = null; save();
+  if (P.i >= P.list.length) return finishPronSession();
+  window.scrollTo(0, 0); renderPronSession(); speak(P.list[P.i][0]);
+}
+function finishPronSession() {
+  const done = P.best.filter(b => b && !b.skipped);
+  const avg = done.length ? Math.round(done.reduce((a, b) => a + b.score, 0) / done.length) : 0;
+  const words = [...new Set(done.flatMap(b => b.words.filter(w => !w.ok).map(w => clean(w.w))))].filter(Boolean).slice(0, 12);
+  const xp = 5 + done.reduce((a, b) => a + (b.score >= 90 ? 3 : b.score >= 70 ? 2 : 1), 0);
+  S.pronSessions.push({ t: Date.now(), group: P.title, n: P.list.length, done: done.length, avg, words });
+  if (S.pronSessions.length > 60) S.pronSessions.splice(0, S.pronSessions.length - 60);
+  addXp(xp);
+  const tag = s => `<span class="score-tag ${s >= 70 ? 'good' : 'bad'}">${s}%</span>`;
+  view().innerHTML = `<div class="summary"><div class="emoji">${avg >= 90 ? '🏆' : avg >= 70 ? '🎤' : '💪'}</div><h1>¡Sesión terminada!</h1>
+    <div class="sum-stats"><div class="stat"><b>+${xp}</b><small>XP</small></div><div class="stat"><b>${done.length ? avg + '%' : '—'}</b><small>Promedio</small></div><div class="stat"><b>${done.length}/${P.list.length}</b><small>Frases</small></div></div></div>
+    <section class="card"><h2>Tus frases</h2>${P.list.map(([en, es], k) => { const b = P.best[k]; return `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><span>${esc(en)}</span><span class="muted small block">${esc(es)}</span></div>${b && !b.skipped ? tag(b.score) : '<span class="muted small">Saltada</span>'}</div>`; }).join('')}</section>
+    ${words.length ? `<section class="card"><h2>🔴 Palabras para practicar</h2><div class="word-chips">${words.map(w => { const g = gloss(w); return `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}</button>`; }).join('')}</div></section>`
+      : done.length ? '<section class="card center"><b>🌟 ¡Pronunciaste bien todas las palabras!</b></section>' : ''}
+    <button class="btn primary wide" data-act="tab" data-tab="talk" data-seg2="pron">Continuar</button>`;
+  P = null;
 }
 
 /* ===== TARJETAS (sistema de cajas + repetición en la misma sesión) ===== */
@@ -724,6 +805,11 @@ async function defineWord() {
 }
 
 /* ===== ESTADÍSTICAS ===== */
+function optionEs(d, en) {
+  if (!d) return '';
+  for (const n of Object.values(d.nodes)) for (const o of n.options || []) if (o.en === en) return o.es;
+  return '';
+}
 const WD = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 function chartData() {
@@ -748,6 +834,7 @@ function renderStats() {
   const mastered = Object.values(S.cards).filter(c => c.box >= 4).length;
   const daysPracticed = Object.values(S.days).filter(d => d.xp > 0).length;
   const dWrong = Object.entries(S.dlg).flatMap(([id, st]) => Object.entries(st.wrong || {}).map(([en, n]) => ({ id, en, n }))).sort((a, b) => b.n - a.n).slice(0, 3);
+  const ps = S.pronSessions || [];
   return topBar('Progreso') + `
   <div class="seg"><button class="${statSeg === 'week' ? 'on' : ''}" data-act="seg" data-seg="stats:week">Semana</button><button class="${statSeg === 'month' ? 'on' : ''}" data-act="seg" data-seg="stats:month">Meses</button></div>
   <section class="card"><span class="label">XP ganada</span>
@@ -768,8 +855,9 @@ function renderStats() {
     ${weak.length ? weak.map(i => `<div class="word-row">${sayBtn(i.en, 'sm')}<div class="grow"><b>${esc(i.en)}</b><span class="muted small block">${esc(i.es)}</span></div><span class="score-tag bad">✗ ${i.fail}</span><span class="score-tag good">✓ ${i.ok}</span></div>`).join('')
       + `<button class="btn primary wide" data-act="lesson" data-id="auto">🎯 Practicar mis errores</button>` : '<p class="muted small">¡Aún no hay errores registrados! 🌟</p>'}
   </section>
-  ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b><small>${p.fail} ✗ · ${p.ok} ✓</small></button>`).join('')}</div></section>` : ''}
-  ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span><span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
+  ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
+  ${ps.length ? `<section class="card"><h2>🎙️ Sesiones de pronunciación</h2><p class="muted small">${ps.length} ${ps.length === 1 ? 'sesión' : 'sesiones'} · promedio ${pct(ps.reduce((a, s) => a + s.avg, 0), ps.length * 100)}%</p>${ps.slice(-4).reverse().map(s => `<div class="word-row"><div class="grow"><span>${esc(s.group)}</span><span class="muted small block">${new Date(s.t).toLocaleDateString('es-CL')} · ${s.done}/${s.n} frases</span></div><span class="score-tag ${s.avg >= 70 ? 'good' : 'bad'}">${s.avg}%</span></div>`).join('')}</section>` : ''}
+  ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id), es = optionEs(d, x.en); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span>${es ? `<span class="muted small block">${esc(es)}</span>` : ''}<span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
   <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Exporta tu progreso, guárdalo en tu PC en <b>APP 2.0\\progreso</b> y dile a Claude "revisa mi progreso".</p></div></section>
   <button class="btn primary wide" data-act="export">${ic('upload', 'sm')} Exportar progreso</button>`;
 }
@@ -785,6 +873,7 @@ function buildSummary() {
     precision_por_tipo: types,
     palabras_dificiles: weakItems(30).map(i => ({ en: i.en, es: i.es, errores: i.fail, aciertos: i.ok })),
     palabras_a_mejorar_al_hablar: weakSounds(20).map(([w, p]) => ({ palabra: w, errores: p.fail, aciertos: p.ok })),
+    sesiones_pronunciacion: (S.pronSessions || []).slice(-15).map(s => ({ fecha: dayStr(new Date(s.t)), grupo: s.group, frases: `${s.done}/${s.n}`, promedio: s.avg + '%', palabras_a_practicar: s.words })),
     tarjetas: { total: Object.keys(S.cards).length, por_caja: [1, 2, 3, 4, 5].map(b => Object.values(S.cards).filter(c => c.box === b).length) }
   };
 }
@@ -843,7 +932,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.0 · tu app de inglés, gratis para siempre 💜</p>`;
+  <p class="muted small center">Fluenta 2.1 · tu app de inglés, gratis para siempre 💜</p>`;
 }
 
 /* ===== Acciones (botones) ===== */
@@ -859,8 +948,8 @@ const ACTIONS = {
   check: () => { if (!L) return; if (L.answered) nextExercise(); else evaluateLesson(); },
   speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; renderLesson(); },
   quit: () => {
-    const back = L ? 'lessons' : D ? 'talk' : 'cards';
-    if (((L && !L.intro) || (D && !D.finished)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
+    const back = L ? 'lessons' : (D || P) ? 'talk' : 'cards';
+    if (((L && !L.intro) || (D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
     go(back);
   },
   mic: el => {
@@ -868,16 +957,20 @@ const ACTIONS = {
     let targets;
     if (ctx === 'lesson') targets = L.queue[L.i].say;
     else if (ctx === 'dialog') targets = D.opts.filter(o => o.go).map(o => o.en);
-    else targets = pronCurrent || PRON[0].phrases[0];
+    else if (ctx === 'psession') { if (!P || P.tries >= PS_TRIES) return; targets = P.list[P.i][0]; }
+    else targets = pronCurrent || PRON[0].phrases[0][0];
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     el.classList.add('listening');
     const res = $('#micres'); if (res) res.innerHTML = '<p class="center listening-txt">🎙️ Escuchando… habla ahora</p>';
     listen(targets, r => {
       el.classList.remove('listening');
       if (!r.error) { S.bestPron = Math.max(S.bestPron, r.score); save(); checkAch(); }
-      if (ctx === 'lesson') onLessonMic(r); else if (ctx === 'dialog') onDialogMic(r); else onPronMic(targets, r);
+      if (ctx === 'lesson') onLessonMic(r); else if (ctx === 'dialog') onDialogMic(r); else if (ctx === 'psession') onSessionMic(r); else onPronMic(targets, r);
     });
   },
+  psession: el => startPronSession(el.dataset.g),
+  psnext: () => { if (P && P.best[P.i]) nextPronPhrase(); },
+  psskip: () => { if (!P) return; const [en, es] = P.list[P.i]; P.best[P.i] = { en, es, skipped: true }; nextPronPhrase(); },
   dialog: el => startDialog(el.dataset.id, el.dataset.mode),
   dopt: el => {
     if (!D || D.finished) return;
