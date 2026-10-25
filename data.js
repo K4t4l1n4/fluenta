@@ -10,16 +10,16 @@ const LESSONS = [
     lessons: [
       { id: "u1l1", title: "Saludos", icon: "👋",
         tip: "\"How are you?\" (¿Cómo estás?) casi siempre se responde corto: \"I'm fine, thanks\" (Bien, gracias) o \"Good, and you?\" (Bien, ¿y tú?).",
-        words: [["hello","hola"],["goodbye","adiós"],["good morning","buenos días"],["good night","buenas noches"],["thank you","gracias"],["please","por favor"]],
-        sentences: [["Hello, how are you?","Hola, ¿cómo estás?"],["I am fine, thank you","Estoy bien, gracias"],["Nice to meet you","Encantada de conocerte"],["See you tomorrow","Nos vemos mañana"]] },
+        words: [["hello","hola"],["goodbye","adiós"],["good morning","buenos días"],["good night","buenas noches"],["thank you","gracias"],["please","por favor"],["good afternoon","buenas tardes"],["see you later","nos vemos"],["welcome","bienvenido"],["excuse me","disculpe"]],
+        sentences: [["Hello, how are you?","Hola, ¿cómo estás?"],["I am fine, thank you","Estoy bien, gracias"],["Nice to meet you","Encantada de conocerte"],["See you tomorrow","Nos vemos mañana"],["Good afternoon, nice to see you","Buenas tardes, qué gusto verte"],["Excuse me, what is your name?","Disculpe, ¿cuál es su nombre?"]] },
       { id: "u1l2", title: "Preséntate", icon: "🙋",
         tip: "\"I am\" (yo soy / yo estoy) se acorta a \"I'm\". Para decir de dónde eres usa \"I'm from…\" (Soy de…).",
-        words: [["name","nombre"],["country","país"],["city","ciudad"],["friend","amigo"],["student","estudiante"],["job","trabajo"]],
-        sentences: [["My name is Ana","Mi nombre es Ana"],["I am from Chile","Soy de Chile"],["I live in a big city","Vivo en una ciudad grande"],["What do you do?","¿A qué te dedicas?"]] },
+        words: [["name","nombre"],["country","país"],["city","ciudad"],["friend","amigo"],["student","estudiante"],["job","trabajo"],["age","edad"],["married","casada"],["teacher","profesor"],["live","vivir"]],
+        sentences: [["My name is Ana","Mi nombre es Ana"],["I am from Chile","Soy de Chile"],["I live in a big city","Vivo en una ciudad grande"],["What do you do?","¿A qué te dedicas?"],["I am thirty years old","Tengo treinta años"],["I work as a designer","Trabajo como diseñadora"]] },
       { id: "u1l3", title: "Números y colores", icon: "🎨",
         tip: "En inglés el color va ANTES del sustantivo: \"a red car\" = un auto rojo.",
-        words: [["one","uno"],["two","dos"],["ten","diez"],["red","rojo"],["blue","azul"],["green","verde"]],
-        sentences: [["I have two cats","Tengo dos gatos"],["My car is red","Mi auto es rojo"],["The sky is blue","El cielo es azul"],["How old are you?","¿Cuántos años tienes?"]] }
+        words: [["one","uno"],["two","dos"],["ten","diez"],["red","rojo"],["blue","azul"],["green","verde"],["three","tres"],["twenty","veinte"],["black","negro"],["white","blanco"]],
+        sentences: [["I have two cats","Tengo dos gatos"],["My car is red","Mi auto es rojo"],["The sky is blue","El cielo es azul"],["How old are you?","¿Cuántos años tienes?"],["I have a white car","Tengo un auto blanco"],["There are twenty students in my class","Hay veinte estudiantes en mi clase"]] }
     ]
   },
   {
@@ -27,16 +27,16 @@ const LESSONS = [
     lessons: [
       { id: "u2l1", title: "Rutina", icon: "⏰",
         tip: "Con he/she/it (él/ella/eso) el verbo lleva -s: \"She works\" (Ella trabaja), \"He wakes up\" (Él se despierta).",
-        words: [["wake up","despertar"],["breakfast","desayuno"],["work","trabajar"],["shower","ducha"],["always","siempre"],["sometimes","a veces"]],
-        sentences: [["I wake up at seven","Me despierto a las siete"],["I always eat breakfast","Siempre tomo desayuno"],["She works from home","Ella trabaja desde casa"],["We sometimes go to the gym","A veces vamos al gimnasio"]] },
+        words: [["wake up","despertar"],["breakfast","desayuno"],["work","trabajar"],["shower","ducha"],["always","siempre"],["sometimes","a veces"],["lunch","almuerzo"],["dinner","cena"],["usually","normalmente"],["never","nunca"]],
+        sentences: [["I wake up at seven","Me despierto a las siete"],["I always eat breakfast","Siempre tomo desayuno"],["She works from home","Ella trabaja desde casa"],["We sometimes go to the gym","A veces vamos al gimnasio"],["I usually have lunch at one","Normalmente almuerzo a la una"],["He never drinks coffee at night","Él nunca toma café en la noche"]] },
       { id: "u2l2", title: "Comida", icon: "🍎",
         tip: "Para pedir con educación usa \"Can I have…?\" (¿Me da…?) o \"I'd like…\" (Quisiera…).",
-        words: [["water","agua"],["bread","pan"],["chicken","pollo"],["apple","manzana"],["coffee","café"],["hungry","con hambre"]],
-        sentences: [["I am very hungry","Tengo mucha hambre"],["Can I have some water?","¿Me das un poco de agua?"],["I don't like coffee","No me gusta el café"],["This chicken is delicious","Este pollo está delicioso"]] },
+        words: [["water","agua"],["bread","pan"],["chicken","pollo"],["apple","manzana"],["coffee","café"],["hungry","con hambre"],["rice","arroz"],["cheese","queso"],["juice","jugo"],["thirsty","con sed"]],
+        sentences: [["I am very hungry","Tengo mucha hambre"],["Can I have some water?","¿Me das un poco de agua?"],["I don't like coffee","No me gusta el café"],["This chicken is delicious","Este pollo está delicioso"],["I would like an orange juice","Quisiera un jugo de naranja"],["We eat rice with chicken","Comemos arroz con pollo"]] },
       { id: "u2l3", title: "La casa", icon: "🏠",
         tip: "\"There is\" (singular) y \"There are\" (plural) significan \"hay\".",
-        words: [["kitchen","cocina"],["bedroom","dormitorio"],["bathroom","baño"],["window","ventana"],["door","puerta"],["table","mesa"]],
-        sentences: [["The kitchen is small","La cocina es pequeña"],["Please close the door","Por favor cierra la puerta"],["There are two windows in my bedroom","Hay dos ventanas en mi dormitorio"],["The keys are on the table","Las llaves están en la mesa"]] }
+        words: [["kitchen","cocina"],["bedroom","dormitorio"],["bathroom","baño"],["window","ventana"],["door","puerta"],["table","mesa"],["living room","living, sala de estar"],["stairs","escaleras"],["garden","jardín"],["chair","silla"]],
+        sentences: [["The kitchen is small","La cocina es pequeña"],["Please close the door","Por favor cierra la puerta"],["There are two windows in my bedroom","Hay dos ventanas en mi dormitorio"],["The keys are on the table","Las llaves están en la mesa"],["The garden is behind the house","El jardín está detrás de la casa"],["Is there a bathroom upstairs?","¿Hay un baño arriba?"]] }
     ]
   },
   {
@@ -44,16 +44,16 @@ const LESSONS = [
     lessons: [
       { id: "u3l1", title: "La ciudad", icon: "🗺️",
         tip: "Para dar indicaciones: \"turn left/right\" (dobla), \"go straight\" (sigue derecho), \"next to\" (al lado de).",
-        words: [["street","calle"],["left","izquierda"],["right","derecha"],["near","cerca"],["far","lejos"],["corner","esquina"]],
-        sentences: [["Turn left at the corner","Dobla a la izquierda en la esquina"],["Is it far from here?","¿Está lejos de aquí?"],["The bank is next to the park","El banco está al lado del parque"],["Go straight ahead","Sigue derecho"]] },
+        words: [["street","calle"],["left","izquierda"],["right","derecha"],["near","cerca"],["far","lejos"],["corner","esquina"],["bank","banco"],["park","parque"],["straight","derecho"],["block","cuadra"]],
+        sentences: [["Turn left at the corner","Dobla a la izquierda en la esquina"],["Is it far from here?","¿Está lejos de aquí?"],["The bank is next to the park","El banco está al lado del parque"],["Go straight ahead","Sigue derecho"],["Walk two blocks and turn right","Camina dos cuadras y dobla a la derecha"],["The museum is near the station","El museo está cerca de la estación"]] },
       { id: "u3l2", title: "De compras", icon: "🛍️",
         tip: "\"How much is…?\" (¿Cuánto cuesta…?) para una cosa; \"How much are…?\" (¿Cuánto cuestan…?) para varias.",
-        words: [["price","precio"],["cheap","barato"],["expensive","caro"],["size","talla"],["cash","efectivo"],["receipt","boleta"]],
-        sentences: [["How much is this?","¿Cuánto cuesta esto?"],["It is too expensive","Es demasiado caro"],["Do you have a smaller size?","¿Tiene una talla más pequeña?"],["Can I pay by card?","¿Puedo pagar con tarjeta?"]] },
+        words: [["price","precio"],["cheap","barato"],["expensive","caro"],["size","talla"],["cash","efectivo"],["receipt","boleta"],["discount","descuento"],["card","tarjeta"],["try on","probarse"],["change","vuelto"]],
+        sentences: [["How much is this?","¿Cuánto cuesta esto?"],["It is too expensive","Es demasiado caro"],["Do you have a smaller size?","¿Tiene una talla más pequeña?"],["Can I pay by card?","¿Puedo pagar con tarjeta?"],["Can I try on this jacket?","¿Me puedo probar esta chaqueta?"],["Is there a discount today?","¿Hay descuento hoy?"]] },
       { id: "u3l3", title: "De viaje", icon: "✈️",
         tip: "\"Check in\" = registrarse. \"Board\" = abordar el avión.",
-        words: [["flight","vuelo"],["luggage","equipaje"],["passport","pasaporte"],["ticket","pasaje"],["gate","puerta de embarque"],["delayed","retrasado"]],
-        sentences: [["My flight is delayed","Mi vuelo está retrasado"],["Where is gate five?","¿Dónde está la puerta cinco?"],["I need to check my luggage","Necesito despachar mi equipaje"],["Here is my passport","Aquí está mi pasaporte"]] }
+        words: [["flight","vuelo"],["luggage","equipaje"],["passport","pasaporte"],["ticket","pasaje"],["gate","puerta de embarque"],["delayed","retrasado"],["suitcase","maleta"],["seat","asiento"],["airport","aeropuerto"],["boarding pass","tarjeta de embarque"]],
+        sentences: [["My flight is delayed","Mi vuelo está retrasado"],["Where is gate five?","¿Dónde está la puerta cinco?"],["I need to check my luggage","Necesito despachar mi equipaje"],["Here is my passport","Aquí está mi pasaporte"],["I would like a window seat","Quisiera un asiento de ventana"],["The airport is far from the city","El aeropuerto está lejos de la ciudad"]] }
     ]
   },
   {
@@ -61,16 +61,16 @@ const LESSONS = [
     lessons: [
       { id: "u5l1", title: "Ayer", icon: "📅",
         tip: "Pasado regular: agrega -ed. \"work → worked\" (trabajar → trabajé), \"study → studied\" (estudiar → estudié). ¡Es igual para todas las personas!",
-        words: [["worked","trabajé"],["played","jugué"],["watched","vi (tele, película)"],["visited","visité"],["cooked","cociné"],["studied","estudié"]],
-        sentences: [["I worked until six yesterday","Ayer trabajé hasta las seis"],["We watched a movie last night","Anoche vimos una película"],["She visited her grandmother","Ella visitó a su abuela"],["I studied English for an hour","Estudié inglés por una hora"]] },
+        words: [["worked","trabajé"],["played","jugué"],["watched","vi (tele, película)"],["visited","visité"],["cooked","cociné"],["studied","estudié"],["walked","caminé"],["called","llamé"],["cleaned","limpié"],["listened","escuché"]],
+        sentences: [["I worked until six yesterday","Ayer trabajé hasta las seis"],["We watched a movie last night","Anoche vimos una película"],["She visited her grandmother","Ella visitó a su abuela"],["I studied English for an hour","Estudié inglés por una hora"],["I called my mother last night","Anoche llamé a mi mamá"],["We walked in the park on Sunday","Caminamos en el parque el domingo"]] },
       { id: "u5l2", title: "Verbos irregulares", icon: "🔀",
         tip: "Algunos verbos cambian completo en pasado: go → went (ir → fui), eat → ate (comer → comí), see → saw (ver → vi). ¡Hay que memorizarlos!",
-        words: [["went","fui"],["ate","comí"],["saw","vi"],["bought","compré"],["had","tuve"],["made","hice"]],
-        sentences: [["I went to the beach last summer","Fui a la playa el verano pasado"],["We ate pizza on Friday","Comimos pizza el viernes"],["I saw your sister at the mall","Vi a tu hermana en el mall"],["She bought a new phone","Ella compró un teléfono nuevo"]] },
+        words: [["went","fui"],["ate","comí"],["saw","vi"],["bought","compré"],["had","tuve"],["made","hice"],["took","tomé"],["came","vine"],["wrote","escribí"],["slept","dormí"]],
+        sentences: [["I went to the beach last summer","Fui a la playa el verano pasado"],["We ate pizza on Friday","Comimos pizza el viernes"],["I saw your sister at the mall","Vi a tu hermana en el mall"],["She bought a new phone","Ella compró un teléfono nuevo"],["I slept eight hours last night","Anoche dormí ocho horas"],["She came to my house yesterday","Ella vino a mi casa ayer"]] },
       { id: "u5l3", title: "Mi fin de semana", icon: "🛋️",
         tip: "Para preguntar en pasado usa \"Did…?\" + verbo normal: \"Did you go?\" (¿Fuiste?). Para negar: \"I didn't go\" (No fui).",
-        words: [["last weekend","el fin de semana pasado"],["yesterday","ayer"],["ago","hace (tiempo)"],["relax","descansar"],["stay","quedarse"],["fun","divertido"]],
-        sentences: [["Did you have a good weekend?","¿Tuviste un buen fin de semana?"],["I didn't go out on Saturday","No salí el sábado"],["We stayed at home and relaxed","Nos quedamos en casa y descansamos"],["I met my friends two days ago","Vi a mis amigos hace dos días"]] }
+        words: [["last weekend","el fin de semana pasado"],["yesterday","ayer"],["ago","hace (tiempo)"],["relax","descansar"],["stay","quedarse"],["fun","divertido"],["Saturday","sábado"],["Sunday","domingo"],["went out","salí"],["met","me junté con"]],
+        sentences: [["Did you have a good weekend?","¿Tuviste un buen fin de semana?"],["I didn't go out on Saturday","No salí el sábado"],["We stayed at home and relaxed","Nos quedamos en casa y descansamos"],["I met my friends two days ago","Vi a mis amigos hace dos días"],["What did you do on Sunday?","¿Qué hiciste el domingo?"],["We had dinner with my family","Cenamos con mi familia"]] }
     ]
   },
   {
@@ -78,16 +78,16 @@ const LESSONS = [
     lessons: [
       { id: "u6l1", title: "Personas", icon: "🧑‍🤝‍🧑",
         tip: "\"What is he like?\" pregunta por la personalidad. \"What does he look like?\" pregunta por el aspecto físico.",
-        words: [["tall","alto"],["short","bajo"],["friendly","amable"],["funny","chistoso"],["shy","tímido"],["smart","inteligente"]],
-        sentences: [["My brother is tall and funny","Mi hermano es alto y chistoso"],["She is very friendly","Ella es muy amable"],["I was shy when I was a child","Era tímida cuando era niña"],["What does he look like?","¿Cómo es él físicamente?"]] },
+        words: [["tall","alto"],["short","bajo"],["friendly","amable"],["funny","chistoso"],["shy","tímido"],["smart","inteligente"],["kind","amable"],["lazy","flojo"],["young","joven"],["old","mayor, viejo"]],
+        sentences: [["My brother is tall and funny","Mi hermano es alto y chistoso"],["She is very friendly","Ella es muy amable"],["I was shy when I was a child","Era tímida cuando era niña"],["What does he look like?","¿Cómo es él físicamente?"],["My grandmother is very kind","Mi abuela es muy amable"],["He has short black hair","Él tiene el pelo negro y corto"]] },
       { id: "u6l2", title: "Comparaciones", icon: "⚖️",
         tip: "Adjetivos cortos: + -er (cheap → cheaper: barato → más barato). Largos: more + adjetivo (more expensive: más caro). Para comparar se usa \"than\" (que).",
-        words: [["bigger","más grande"],["cheaper","más barato"],["better","mejor"],["worse","peor"],["more expensive","más caro"],["than","que (al comparar)"]],
-        sentences: [["My city is bigger than yours","Mi ciudad es más grande que la tuya"],["This phone is cheaper than that one","Este teléfono es más barato que ese"],["Coffee is better than tea","El café es mejor que el té"],["The red bag is more expensive","La cartera roja es más cara"]] },
+        words: [["bigger","más grande"],["cheaper","más barato"],["better","mejor"],["worse","peor"],["more expensive","más caro"],["than","que (al comparar)"],["smaller","más pequeño"],["faster","más rápido"],["the best","el mejor"],["the biggest","el más grande"]],
+        sentences: [["My city is bigger than yours","Mi ciudad es más grande que la tuya"],["This phone is cheaper than that one","Este teléfono es más barato que ese"],["Coffee is better than tea","El café es mejor que el té"],["The red bag is more expensive","La cartera roja es más cara"],["This is the best restaurant in the city","Este es el mejor restaurante de la ciudad"],["My sister is as tall as me","Mi hermana es tan alta como yo"]] },
       { id: "u6l3", title: "Lugares y clima", icon: "🌦️",
         tip: "Para el clima siempre se usa \"It\": \"It's cold\" (Hace frío), \"It's raining\" (Está lloviendo).",
-        words: [["sunny","soleado"],["rainy","lluvioso"],["cold","frío"],["warm","templado"],["crowded","lleno de gente"],["quiet","tranquilo"]],
-        sentences: [["It is sunny today","Hoy está soleado"],["The beach was very crowded","La playa estaba muy llena"],["It is colder in the south","Hace más frío en el sur"],["I prefer quiet places","Prefiero los lugares tranquilos"]] }
+        words: [["sunny","soleado"],["rainy","lluvioso"],["cold","frío"],["warm","templado"],["crowded","lleno de gente"],["quiet","tranquilo"],["windy","ventoso"],["snow","nieve"],["hot","caluroso"],["beach","playa"]],
+        sentences: [["It is sunny today","Hoy está soleado"],["The beach was very crowded","La playa estaba muy llena"],["It is colder in the south","Hace más frío en el sur"],["I prefer quiet places","Prefiero los lugares tranquilos"],["It is very windy today","Hoy hay mucho viento"],["It snows in the mountains in winter","Nieva en la cordillera en invierno"]] }
     ]
   },
   {
@@ -95,16 +95,16 @@ const LESSONS = [
     lessons: [
       { id: "u4l3", title: "Mis planes", icon: "🚀",
         tip: "\"Going to\" + verbo = planes que ya decidiste: \"I'm going to study tonight\" (Voy a estudiar esta noche).",
-        words: [["tomorrow","mañana"],["next week","la próxima semana"],["weekend","fin de semana"],["goal","meta"],["maybe","quizás"],["dream","sueño"]],
-        sentences: [["I am going to study tonight","Voy a estudiar esta noche"],["What are your plans for the weekend?","¿Cuáles son tus planes para el fin de semana?"],["Maybe I will travel next year","Quizás viaje el próximo año"],["My goal is to speak English fluently","Mi meta es hablar inglés con fluidez"]] },
+        words: [["tomorrow","mañana"],["next week","la próxima semana"],["weekend","fin de semana"],["goal","meta"],["maybe","quizás"],["dream","sueño"],["tonight","esta noche"],["next year","el próximo año"],["travel","viajar"],["plan","plan"]],
+        sentences: [["I am going to study tonight","Voy a estudiar esta noche"],["What are your plans for the weekend?","¿Cuáles son tus planes para el fin de semana?"],["Maybe I will travel next year","Quizás viaje el próximo año"],["My goal is to speak English fluently","Mi meta es hablar inglés con fluidez"],["We are going to travel to Peru next year","Vamos a viajar a Perú el próximo año"],["I am going to cook tonight","Voy a cocinar esta noche"]] },
       { id: "u7l2", title: "Invitaciones", icon: "🎉",
         tip: "\"Would you like to…?\" (¿Te gustaría…?) es la forma más educada de invitar. Responde \"I'd love to!\" (¡Me encantaría!) o \"Sorry, I can't\" (Lo siento, no puedo).",
-        words: [["invite","invitar"],["party","fiesta"],["free","libre"],["busy","ocupado"],["sure","claro"],["join","acompañar"]],
-        sentences: [["Would you like to come to my party?","¿Te gustaría venir a mi fiesta?"],["Are you free on Saturday?","¿Estás libre el sábado?"],["Sorry, I am busy tonight","Lo siento, estoy ocupada esta noche"],["Sure, I would love to join you","Claro, me encantaría acompañarte"]] },
+        words: [["invite","invitar"],["party","fiesta"],["free","libre"],["busy","ocupado"],["sure","claro"],["join","acompañar"],["concert","concierto"],["movie","película"],["maybe next time","quizás la próxima vez"],["accept","aceptar"]],
+        sentences: [["Would you like to come to my party?","¿Te gustaría venir a mi fiesta?"],["Are you free on Saturday?","¿Estás libre el sábado?"],["Sorry, I am busy tonight","Lo siento, estoy ocupada esta noche"],["Sure, I would love to join you","Claro, me encantaría acompañarte"],["Would you like to have dinner with us?","¿Te gustaría cenar con nosotros?"],["Maybe next time, thank you","Quizás la próxima vez, gracias"]] },
       { id: "u7l3", title: "Citas y horarios", icon: "🗓️",
         tip: "\"at\" para horas (at 5: a las 5), \"on\" para días (on Monday: el lunes), \"in\" para meses (in May: en mayo).",
-        words: [["appointment","cita"],["early","temprano"],["late","tarde"],["birthday","cumpleaños"],["month","mes"],["half past","y media"]],
-        sentences: [["I have an appointment at half past four","Tengo una cita a las cuatro y media"],["My birthday is in May","Mi cumpleaños es en mayo"],["Sorry, I am late","Perdón, llegué tarde"],["The class starts early on Monday","La clase empieza temprano el lunes"]] }
+        words: [["appointment","cita"],["early","temprano"],["late","tarde"],["birthday","cumpleaños"],["month","mes"],["half past","y media"],["o'clock","en punto"],["quarter past","y cuarto"],["weekday","día de semana"],["schedule","horario"]],
+        sentences: [["I have an appointment at half past four","Tengo una cita a las cuatro y media"],["My birthday is in May","Mi cumpleaños es en mayo"],["Sorry, I am late","Perdón, llegué tarde"],["The class starts early on Monday","La clase empieza temprano el lunes"],["The meeting is at three o'clock","La reunión es a las tres en punto"],["What is your schedule on Friday?","¿Cuál es tu horario el viernes?"]] }
     ]
   },
   {
@@ -112,16 +112,16 @@ const LESSONS = [
     lessons: [
       { id: "u8l1", title: "El cuerpo", icon: "🫀",
         tip: "Para dolores: \"My ___ hurts\" (Me duele el/la ___) o \"I have a ___ache\" (Tengo dolor de ___): headache (dolor de cabeza), stomachache (dolor de estómago).",
-        words: [["head","cabeza"],["back","espalda"],["stomach","estómago"],["throat","garganta"],["arm","brazo"],["hurt","doler"]],
-        sentences: [["My back hurts","Me duele la espalda"],["I have a sore throat","Me duele la garganta"],["She broke her arm","Ella se quebró el brazo"],["I have a stomachache","Tengo dolor de estómago"]] },
+        words: [["head","cabeza"],["back","espalda"],["stomach","estómago"],["throat","garganta"],["arm","brazo"],["hurt","doler"],["leg","pierna"],["hand","mano"],["tooth","diente, muela"],["sore","adolorido"]],
+        sentences: [["My back hurts","Me duele la espalda"],["I have a sore throat","Me duele la garganta"],["She broke her arm","Ella se quebró el brazo"],["I have a stomachache","Tengo dolor de estómago"],["I have a toothache","Tengo dolor de muelas"],["My legs hurt after the gym","Me duelen las piernas después del gimnasio"]] },
       { id: "u8l2", title: "En la farmacia", icon: "💊",
         tip: "\"Should\" sirve para dar consejos: \"You should rest\" = Deberías descansar.",
-        words: [["medicine","medicamento"],["pill","pastilla"],["cough","tos"],["cold","resfriado"],["prescription","receta"],["feel better","sentirse mejor"]],
-        sentences: [["I need something for a cough","Necesito algo para la tos"],["Take one pill every eight hours","Toma una pastilla cada ocho horas"],["Do I need a prescription?","¿Necesito receta?"],["You should rest and drink water","Deberías descansar y tomar agua"]] },
+        words: [["medicine","medicamento"],["pill","pastilla"],["cough","tos"],["cold","resfriado"],["prescription","receta"],["feel better","sentirse mejor"],["headache","dolor de cabeza"],["fever","fiebre"],["allergy","alergia"],["rest","descansar"]],
+        sentences: [["I need something for a cough","Necesito algo para la tos"],["Take one pill every eight hours","Toma una pastilla cada ocho horas"],["Do I need a prescription?","¿Necesito receta?"],["You should rest and drink water","Deberías descansar y tomar agua"],["Do you have something for a headache?","¿Tiene algo para el dolor de cabeza?"],["I have a fever and a cough","Tengo fiebre y tos"]] },
       { id: "u8l3", title: "Ejercicio", icon: "🏃‍♀️",
         tip: "Frecuencia: \"once a week\" (una vez), \"twice a week\" (dos veces), \"three times a week\".",
-        words: [["gym","gimnasio"],["run","correr"],["stretch","elongar"],["healthy","saludable"],["strong","fuerte"],["twice a week","dos veces por semana"]],
-        sentences: [["I go to the gym twice a week","Voy al gimnasio dos veces por semana"],["You should stretch before you run","Deberías elongar antes de correr"],["Eating vegetables is healthy","Comer verduras es saludable"],["I feel stronger every day","Me siento más fuerte cada día"]] }
+        words: [["gym","gimnasio"],["run","correr"],["stretch","elongar"],["healthy","saludable"],["strong","fuerte"],["twice a week","dos veces por semana"],["swim","nadar"],["walk","caminar"],["once a week","una vez por semana"],["stay in shape","mantenerse en forma"]],
+        sentences: [["I go to the gym twice a week","Voy al gimnasio dos veces por semana"],["You should stretch before you run","Deberías elongar antes de correr"],["Eating vegetables is healthy","Comer verduras es saludable"],["I feel stronger every day","Me siento más fuerte cada día"],["I swim once a week","Nado una vez por semana"],["I walk thirty minutes every day","Camino treinta minutos todos los días"]] }
     ]
   },
   {
@@ -129,16 +129,16 @@ const LESSONS = [
     lessons: [
       { id: "u4l1", title: "En el trabajo", icon: "💼",
         tip: "\"Could you…?\" (¿Podrías…?) es más educado que \"Can you…?\" (¿Puedes…?) para pedir algo en el trabajo.",
-        words: [["meeting","reunión"],["deadline","fecha límite"],["boss","jefe"],["coworker","compañero de trabajo"],["skills","habilidades"],["hire","contratar"]],
-        sentences: [["I have a meeting at ten","Tengo una reunión a las diez"],["The deadline is on Friday","La fecha límite es el viernes"],["I am good at solving problems","Soy buena resolviendo problemas"],["Could you send me the file?","¿Podrías enviarme el archivo?"]] },
+        words: [["meeting","reunión"],["deadline","fecha límite"],["boss","jefe"],["coworker","compañero de trabajo"],["skills","habilidades"],["hire","contratar"],["office","oficina"],["email","correo"],["project","proyecto"],["salary","sueldo"]],
+        sentences: [["I have a meeting at ten","Tengo una reunión a las diez"],["The deadline is on Friday","La fecha límite es el viernes"],["I am good at solving problems","Soy buena resolviendo problemas"],["Could you send me the file?","¿Podrías enviarme el archivo?"],["I work in an office downtown","Trabajo en una oficina en el centro"],["I sent you an email this morning","Te envié un correo esta mañana"]] },
       { id: "u4l2", title: "Emociones", icon: "😊",
         tip: "Con -ed dices cómo te sientes: \"I'm bored\" (Estoy aburrida). Con -ing describes lo que lo causa: \"It's boring\" (Es aburrido).",
-        words: [["happy","feliz"],["tired","cansado"],["worried","preocupado"],["excited","emocionado"],["angry","enojado"],["proud","orgulloso"]],
-        sentences: [["I am so tired today","Estoy muy cansada hoy"],["Don't worry about it","No te preocupes por eso"],["I am excited about the trip","Estoy emocionada por el viaje"],["I am proud of you","Estoy orgullosa de ti"]] },
+        words: [["happy","feliz"],["tired","cansado"],["worried","preocupado"],["excited","emocionado"],["angry","enojado"],["proud","orgulloso"],["sad","triste"],["bored","aburrido"],["nervous","nervioso"],["scared","asustado"]],
+        sentences: [["I am so tired today","Estoy muy cansada hoy"],["Don't worry about it","No te preocupes por eso"],["I am excited about the trip","Estoy emocionada por el viaje"],["I am proud of you","Estoy orgullosa de ti"],["I feel nervous before an exam","Me siento nerviosa antes de un examen"],["Why are you sad?","¿Por qué estás triste?"]] },
       { id: "u9l3", title: "Tecnología", icon: "💻",
         tip: "Muchos verbos de tecnología llevan una partícula: \"log in\" (iniciar sesión), \"sign up\" (registrarse), \"shut down\" (apagar).",
-        words: [["laptop","notebook"],["website","sitio web"],["download","descargar"],["screen","pantalla"],["battery","batería"],["update","actualizar"]],
-        sentences: [["My laptop battery is low","La batería de mi notebook está baja"],["I need to update the app","Necesito actualizar la app"],["Can you send me the link to the website?","¿Me puedes enviar el link del sitio web?"],["The screen is too small","La pantalla es demasiado pequeña"]] }
+        words: [["laptop","notebook"],["website","sitio web"],["download","descargar"],["screen","pantalla"],["battery","batería"],["update","actualizar"],["password","contraseña"],["log in","iniciar sesión"],["charger","cargador"],["app","app, aplicación"]],
+        sentences: [["My laptop battery is low","La batería de mi notebook está baja"],["I need to update the app","Necesito actualizar la app"],["Can you send me the link to the website?","¿Me puedes enviar el link del sitio web?"],["The screen is too small","La pantalla es demasiado pequeña"],["I forgot my password","Se me olvidó la contraseña"],["Can I borrow your charger?","¿Me prestas tu cargador?"]] }
     ]
   }
 ];
@@ -170,14 +170,17 @@ const DIALOGS = [
         { en: "To go, please.", es: "Para llevar, por favor.", go: "f" },
         { en: "I go every day.", es: "Voy todos los días.", fb: "\"Voy todos los días\" no responde la pregunta." } ] },
       e: { npc: ["Great, have a seat. Would you like a muffin with that?","Genial, toma asiento. ¿Quieres un muffin con eso?"], options: [
-        { en: "Yes, a chocolate muffin, please.", es: "Sí, un muffin de chocolate, por favor.", go: "end" },
+        { en: "Yes, a chocolate muffin, please.", es: "Sí, un muffin de chocolate, por favor.", go: "end2" },
         { en: "No, thanks. That's all.", es: "No, gracias. Eso es todo.", go: "end" },
         { en: "Yes, I like to sit.", es: "Sí, me gusta sentarme.", fb: "Te ofrecieron un muffin, no un asiento 😄" } ] },
       f: { npc: ["Okay. That will be four dollars. Cash or card?","Ok. Son cuatro dólares. ¿Efectivo o tarjeta?"], options: [
-        { en: "Card, please.", es: "Tarjeta, por favor.", go: "end" },
-        { en: "Cash. Here you go.", es: "Efectivo. Aquí tienes.", go: "end" },
+        { en: "Card, please.", es: "Tarjeta, por favor.", go: "end3" },
+        { en: "Cash. Here you go.", es: "Efectivo. Aquí tienes.", go: "end4" },
         { en: "Four dollars is my name.", es: "Cuatro dólares es mi nombre.", fb: "¡Eso no tiene sentido! 😄 Elige cómo pagar." } ] },
-      end: { npc: ["Thank you! Have a great day!","¡Gracias! ¡Que tengas un gran día!"], end: true }
+      end: { npc: ["Thank you! Have a great day!","¡Gracias! ¡Que tengas un gran día!"], end: true },
+      end2: { npc: ["Here's your drink and your chocolate muffin. Enjoy!","Aquí está tu bebida y tu muffin de chocolate. ¡Que lo disfrutes!"], end: true },
+      end3: { npc: ["Please tap your card here. Thank you, have a great day!","Por favor acerca tu tarjeta aquí. ¡Gracias, que tengas un gran día!"], end: true },
+      end4: { npc: ["Here's your change: one dollar. See you tomorrow!","Aquí está tu vuelto: un dólar. ¡Nos vemos mañana!"], end: true }
     } },
 
   { id: "airport", title: "En el aeropuerto", icon: "✈️", level: "A1", desc: "Haz el check-in sin nervios.", start: "a",
@@ -196,13 +199,16 @@ const DIALOGS = [
         { en: "Yes, I check my phone.", es: "Sí, reviso mi teléfono.", fb: "Aquí \"check\" significa despachar equipaje." } ] },
       d: { npc: ["Please put it on the scale. Would you like a window or an aisle seat?","Póngala en la balanza, por favor. ¿Prefiere ventana o pasillo?"], options: [
         { en: "A window seat, please.", es: "Ventana, por favor.", go: "end" },
-        { en: "An aisle seat, please.", es: "Pasillo, por favor.", go: "end" },
+        { en: "An aisle seat, please.", es: "Pasillo, por favor.", go: "end2" },
+        { en: "Is my bag too heavy?", es: "¿Mi maleta pesa demasiado?", go: "end3" },
         { en: "I would like the scale.", es: "Quisiera la balanza.", fb: "Te preguntan qué asiento prefieres." } ] },
       e: { npc: ["Perfect. Would you like a window or an aisle seat?","Perfecto. ¿Prefiere ventana o pasillo?"], options: [
         { en: "A window seat, please.", es: "Ventana, por favor.", go: "end" },
-        { en: "An aisle seat, please.", es: "Pasillo, por favor.", go: "end" },
+        { en: "An aisle seat, please.", es: "Pasillo, por favor.", go: "end2" },
         { en: "No, I don't like seats.", es: "No, no me gustan los asientos.", fb: "¡Vas a necesitar un asiento! 😄" } ] },
-      end: { npc: ["Here is your boarding pass. Your gate is twelve. Have a nice flight!","Aquí está su tarjeta de embarque. Su puerta es la doce. ¡Buen vuelo!"], end: true }
+      end: { npc: ["Here is your boarding pass. Your gate is twelve. Have a nice flight!","Aquí está su tarjeta de embarque. Su puerta es la doce. ¡Buen vuelo!"], end: true },
+      end2: { npc: ["Here is your boarding pass. You have an aisle seat in row twenty. Boarding starts at ten. Have a nice flight!","Aquí está su tarjeta de embarque. Tiene pasillo en la fila veinte. El embarque empieza a las diez. ¡Buen vuelo!"], end: true },
+      end3: { npc: ["It's twenty-five kilos, so you need to pay an extra fee. Here is your boarding pass.","Pesa veinticinco kilos, así que debe pagar un cargo extra. Aquí está su tarjeta de embarque."], end: true }
     } },
 
   { id: "restaurant", title: "En el restaurante", icon: "🍝", level: "A2", desc: "Consigue mesa, pide y elige tu bebida.", start: "a",
@@ -229,9 +235,12 @@ const DIALOGS = [
         { en: "I am very popular too.", es: "Yo también soy muy popular.", fb: "😄 ¡Seguro! Pero elige tu plato." } ] },
       d: { npc: ["Great choice. Would you like something to drink?","Buena elección. ¿Le gustaría algo para beber?"], options: [
         { en: "Just water, please.", es: "Solo agua, por favor.", go: "end" },
-        { en: "A glass of orange juice, please.", es: "Un vaso de jugo de naranja, por favor.", go: "end" },
+        { en: "A glass of orange juice, please.", es: "Un vaso de jugo de naranja, por favor.", go: "end2" },
+        { en: "Can I see the wine list, please?", es: "¿Me muestra la carta de vinos, por favor?", go: "end3" },
         { en: "Yes, something.", es: "Sí, algo.", fb: "Demasiado vago: di qué bebida quieres." } ] },
-      end: { npc: ["Perfect. Your food will be ready in fifteen minutes.","Perfecto. Su comida estará lista en quince minutos."], end: true }
+      end: { npc: ["Perfect. Your food will be ready in fifteen minutes.","Perfecto. Su comida estará lista en quince minutos."], end: true },
+      end2: { npc: ["Perfect. Your juice is coming right now, and your food will be ready soon.","Perfecto. Su jugo viene enseguida y su comida estará lista pronto."], end: true },
+      end3: { npc: ["Of course. I recommend a Chilean red wine. Here you go!","Por supuesto. Le recomiendo un vino tinto chileno. ¡Aquí tiene!"], end: true }
     } },
 
   { id: "hotel", title: "En el hotel", icon: "🏨", level: "A2", desc: "Con reserva o sin reserva: consigue tu pieza.", start: "a",
@@ -279,10 +288,13 @@ const DIALOGS = [
         { en: "My English is not perfect yet, but I practice every day.", es: "Mi inglés aún no es perfecto, pero practico todos los días.", go: "e" },
         { en: "I don't have any weaknesses. I'm perfect.", es: "No tengo debilidades. Soy perfecta.", fb: "Suena arrogante. Menciona algo real y cómo lo mejoras." } ] },
       e: { npc: ["Great. Do you have any questions for us?","Muy bien. ¿Tienes alguna pregunta para nosotros?"], options: [
-        { en: "Yes, what does a typical day look like here?", es: "Sí, ¿cómo es un día típico aquí?", go: "end" },
+        { en: "Yes, what does a typical day look like here?", es: "Sí, ¿cómo es un día típico aquí?", go: "end2" },
         { en: "Yes, when can I expect an answer?", es: "Sí, ¿cuándo puedo esperar una respuesta?", go: "end" },
+        { en: "No, I think everything is clear. Thank you!", es: "No, creo que todo está claro. ¡Gracias!", go: "end3" },
         { en: "Yes, how old are you?", es: "Sí, ¿cuántos años tienes?", fb: "Pregunta personal inapropiada en una entrevista." } ] },
-      end: { npc: ["Thank you for your time. We will contact you next week.","Gracias por tu tiempo. Te contactaremos la próxima semana."], end: true }
+      end: { npc: ["Thank you for your time. We will contact you next week.","Gracias por tu tiempo. Te contactaremos la próxima semana."], end: true },
+      end2: { npc: ["You start at nine, work with the design team and have a meeting every Monday. We will call you soon!","Empiezas a las nueve, trabajas con el equipo de diseño y hay una reunión cada lunes. ¡Te llamaremos pronto!"], end: true },
+      end3: { npc: ["Perfect. Actually, we really liked you. Can you start next month?","Perfecto. La verdad, nos gustaste mucho. ¿Puedes empezar el próximo mes?"], end: true }
     } },
 
   { id: "doctor", title: "En el médico", icon: "🩺", level: "A2", desc: "Explica qué te pasa y entiende las indicaciones.", start: "a",
@@ -403,10 +415,13 @@ const DIALOGS = [
         { en: "I work as a programmer.", es: "Trabajo como programadora.", go: "g" },
         { en: "I do nothing right now.", es: "No hago nada ahora mismo.", fb: "\"What do you do?\" pregunta por tu trabajo, no por este momento." } ] },
       g: { npc: ["That sounds great! Would you like something to drink?","¡Suena genial! ¿Quieres algo para tomar?"], options: [
-        { en: "Sure, I'd love some juice.", es: "Claro, me encantaría un jugo.", go: "end" },
+        { en: "Sure, I'd love some juice.", es: "Claro, me encantaría un jugo.", go: "end2" },
         { en: "No, thanks. I'm okay for now.", es: "No, gracias. Por ahora estoy bien.", go: "end" },
+        { en: "Actually, I have to go. It was nice to meet you!", es: "La verdad, me tengo que ir. ¡Fue un gusto conocerte!", go: "end3" },
         { en: "Yes, I drink programs.", es: "Sí, bebo programas.", fb: "😄 ¡Eso no se bebe!" } ] },
-      end: { npc: ["It was great talking to you, Ana!","¡Fue genial conversar contigo, Ana!"], end: true }
+      end: { npc: ["It was great talking to you, Ana!","¡Fue genial conversar contigo, Ana!"], end: true },
+      end2: { npc: ["Here you go! Come with me, I'll introduce you to my friends.","¡Aquí tienes! Ven conmigo, te presento a mis amigos."], end: true },
+      end3: { npc: ["Oh, okay! Can I have your number? Let's meet again soon.","¡Ah, ok! ¿Me das tu número? Juntémonos otra vez pronto."], end: true }
     } },
 
   { id: "supermarket", title: "En el supermercado", icon: "🛒", level: "A2", desc: "Encuentra productos y paga en la caja.", start: "a",
@@ -437,9 +452,12 @@ const DIALOGS = [
         { en: "I am out too.", es: "Yo también estoy afuera.", fb: "\"We're out of…\" significa \"se nos acabó\"." } ] },
       f: { npc: ["Your total is twenty-three dollars. Do you need a bag?","El total es veintitrés dólares. ¿Necesitas bolsa?"], options: [
         { en: "Yes, please.", es: "Sí, por favor.", go: "end" },
-        { en: "No, thanks. I have my own bag.", es: "No, gracias. Traigo mi propia bolsa.", go: "end" },
+        { en: "No, thanks. I have my own bag.", es: "No, gracias. Traigo mi propia bolsa.", go: "end2" },
+        { en: "Can I pay by card?", es: "¿Puedo pagar con tarjeta?", go: "end3" },
         { en: "Twenty-three is my age.", es: "Veintitrés es mi edad.", fb: "Te preguntan si necesitas bolsa." } ] },
-      end: { npc: ["Here's your receipt. Have a nice day!","Aquí está tu boleta. ¡Que tengas un lindo día!"], end: true }
+      end: { npc: ["Here's your receipt. Have a nice day!","Aquí está tu boleta. ¡Que tengas un lindo día!"], end: true },
+      end2: { npc: ["Great, thanks for helping the planet! Here's your receipt.","¡Genial, gracias por ayudar al planeta! Aquí está tu boleta."], end: true },
+      end3: { npc: ["Of course. Insert your card, please… Done! Here's your receipt.","Por supuesto. Inserta tu tarjeta, por favor… ¡Listo! Aquí está tu boleta."], end: true }
     } },
 
   { id: "meeting", title: "Reunión de trabajo", icon: "👩‍💻", level: "A2", desc: "Da un reporte sobre tu proyecto.", start: "a",
