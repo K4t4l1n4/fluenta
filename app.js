@@ -47,7 +47,8 @@ const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
   rate: 0.9, name: '', theme: 'light',
-  items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: []
+  items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
+  writing: { texts: [], errs: {} }
 };
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT));
 let S = load();
@@ -68,7 +69,7 @@ function addXp(n) {
 }
 
 /* ===== Historial de aciertos y errores ===== */
-const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos' };
+const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)' };
 function trackType(type, ok) {
   const t = S.types[type] || (S.types[type] = { ok: 0, fail: 0 }); ok ? t.ok++ : t.fail++;
   const d = today(); ok ? d.ok++ : d.fail++;
@@ -295,7 +296,7 @@ let tab = 'home', talkSeg = 'dialogs', cardSeg = 'review', statSeg = 'week';
 let pronCurrent = null, pronResult = null, L = null, D = null, F = null, P = null;
 const view = () => $('#view');
 function go(t) {
-  tab = t; L = null; D = null; F = null; P = null;
+  tab = t; L = null; D = null; F = null; P = null; W = null;
   if (SHEET.open) closeSheet();
   document.body.classList.remove('focus');
   try { rec && rec.abort(); } catch (e) {}
@@ -304,7 +305,7 @@ function go(t) {
 function render() {
   rollover();
   document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile })[tab]();
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab })[tab]();
 }
 function renderNav() {
   $('#tabs').innerHTML = `
@@ -375,6 +376,7 @@ function renderHome() {
     <button class="sec-card" data-act="tab" data-tab="${s.tab}" ${s.seg ? `data-seg2="${s.seg}"` : ''}>
       <span class="sec-ring" style="--p:${s.p}"><span>${ic(s.icon)}</span></span>
       <b>${s.title}</b><small>${s.p}% completado</small></button>`).join('')}</div>
+  <button class="card action-card" data-act="tab" data-tab="write"><span class="icon-bubble">✍️</span><span class="grow"><b>Escribir en inglés</b><small class="muted block">${(S.writing && S.writing.texts.length) ? `${S.writing.texts.length} textos escritos · ` : ''}Temas guiados con corrección en español</small></span>${ic('play', 'sm accent')}</button>
   <section class="card row goal-card">${ring(goalPct, `${S.dailyXp}/${S.goal}`)}<div class="grow"><b>Meta diaria</b><p class="muted small">${goalPct >= 100 ? '¡Cumplida! ✅ Sigue sumando para la liga.' : `Te faltan ${S.goal - S.dailyXp} XP para hoy.`}</p></div></section>
   ${weak >= 3 ? `<button class="card action-card" data-act="lesson" data-id="auto"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Practica tus errores</b><small class="muted block">${weak} palabras y frases para reforzar</small></span>${ic('play', 'sm accent')}</button>` : ''}
   ${needBackup ? `<button class="card action-card" data-act="export"><span class="icon-bubble">${ic('upload')}</span><span class="grow"><b>Guarda una copia</b><small class="muted block">Exporta tu progreso para respaldarlo y que Claude lo revise</small></span></button>` : ''}
@@ -820,13 +822,13 @@ function loadDict() {
 /* Palabras de las lecciones y de tus tarjetas (incluye expresiones como "wake up") */
 function appEntries() {
   const m = new Map();
-  allWords().forEach(([en, es]) => m.set(en.toLowerCase(), { w: en.toLowerCase(), es, pos: '' }));
+  [...allWords(), ...WRITE_TOPICS.flatMap(t => t.words)].forEach(([en, es]) => { const k = en.toLowerCase(); if (!m.has(k)) m.set(k, { w: k, es, pos: '' }); });
   Object.values(S.cards).forEach(c => { const k = c.en.toLowerCase(); if (!m.has(k)) m.set(k, { w: k, es: c.es, pos: '' }); });
   return m;
 }
 let SENTENCES = null;
 function appSentences() {
-  if (!SENTENCES) SENTENCES = uniqBy([...allSentences(), ...PRON.flatMap(c => c.phrases),
+  if (!SENTENCES) SENTENCES = uniqBy([...allSentences(), ...PRON.flatMap(c => c.phrases), ...WRITE_TOPICS.flatMap(t => t.questions),
     ...DIALOGS.flatMap(d => Object.values(d.nodes).flatMap(n => [n.npc, ...(n.options || []).filter(o => o.go).map(o => [o.en, o.es])]))], s => s[0]);
   return SENTENCES;
 }
@@ -998,6 +1000,322 @@ function placeFab() {
   fab.classList.toggle('hide', SHEET.open || typing);
 }
 
+/* ===== ESCRIBIR: temas guiados con corrección automática =====
+   1) Reglas propias (sin internet) para errores típicos de hispanohablantes.
+   2) LanguageTool (internet, gratis) para ortografía y más gramática.
+   Todas las explicaciones están en español. */
+const W_AUX = new Set(['do', 'does', 'did', "don't", "doesn't", "didn't", 'dont', 'doesnt', 'didnt', 'can', 'could', 'will', 'would', 'should', 'must', 'may', 'might', "can't", "won't", "couldn't", "shouldn't", "wouldn't", 'to', 'let', 'make', 'help', 'not']);
+const W_MODALS = new Set(['can', 'could', 'will', 'would', 'should', 'must', 'may', 'might', "can't", "won't", "couldn't", "shouldn't", "wouldn't", 'cannot']);
+const W_ADV = new Set(['never', 'always', 'usually', 'often', 'sometimes', 'also', 'really', 'just', 'still', 'rarely']);
+const W_PERSON = /^(brother|sister|mother|father|mom|mum|dad|friend|boss|husband|wife|son|daughter|cousin|uncle|aunt|grandmother|grandfather|grandma|grandpa|teacher|partner|neighbor|boyfriend|girlfriend|dog|cat|family|baby)$/;
+const W_PAST_MARK = /\b(yesterday|ago|last (night|week|weekend|month|year|summer|winter|spring|autumn|fall|time|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in (19|20)\d\d)\b/i;
+const W_CAPS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'january', 'february', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'english', 'spanish', 'french', 'chile', 'chilean', 'peru', 'argentina', 'mexico', 'spain', 'england', 'santiago'];
+const W_AN_EXC = /^(uni|use|usu|eu|one|once|ur)/i, W_H_SILENT = /^(hour|honest|honor|heir)/i;
+const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+function verbBase(w) {
+  const e = DICT_IX.w.get(w);
+  if (!e || !/(^|\/)v(\/|$)/.test(e.pos) || W_MODALS.has(w)) return false;
+  const v = DICT_IX.verbs[w];
+  return !(v && v[0].split('/').includes(w));   /* cut, put, hit…: igual en presente y pasado */
+}
+function thirdPerson(w) {
+  if (w === 'have') return 'has'; if (w === 'be') return 'is'; if (w === 'do') return 'does'; if (w === 'go') return 'goes';
+  if (/(s|sh|ch|x|z|o)$/.test(w)) return w + 'es';
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + 'ies';
+  return w + 's';
+}
+function pastOf(w, subj) {
+  if (w === 'be') return ['i', 'he', 'she', 'it'].includes(subj) ? 'was' : 'were';
+  const v = DICT_IX.verbs[w]; if (v) return v[0].split('/')[0];
+  if (w.endsWith('e')) return w + 'd';
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + 'ied';
+  if (/^[^aeiou]*[aeiou][^aeiouwxy]$/.test(w) && w.length <= 4) return w + w.slice(-1) + 'ed';
+  return w + 'ed';
+}
+function baseOfForm(w) {
+  const ir = DICT_IX.irr.get(w); if (ir && ir.base !== w) return ir.base;
+  const h = DICT_IX.form.get(w) || stemGuess(w);
+  return h && h !== w && verbBase(h) ? h : null;
+}
+const W_STATIVE = /^(like|love|hate|think|know|want|need|hope|believe|prefer|mean|understand|remember|recommend|feel)$/;
+/* pastCtx: la pregunta habla del pasado ("What did you do…?"), así que la respuesta también */
+function localWritingRules(text, pastCtx = false) {
+  const out = [], toks = [...text.matchAll(/[A-Za-z][A-Za-z']*/g)].map(m => ({ w: m[0], lw: m[0].toLowerCase(), i: m.index }));
+  const add = (off, len, right, rule, es, type = 'Gramática') => out.push({ off, len, wrong: text.substr(off, len), right, rule, es, type });
+  const span = (a, b) => [toks[a].i, toks[b].i + toks[b].w.length - toks[a].i];
+  const used = new Set();
+  /* Verbo en presente en una oración que habla del pasado (si no habla de un hábito) */
+  let ctx = pastCtx;
+  for (const s of text.matchAll(/[^.!?\n]+[.!?]?/g)) {
+    const marked = W_PAST_MARK.test(s[0]), present = /\b(every|usually|always|often|sometimes|now|today|tomorrow|next|going to|will)\b/i.test(s[0]);
+    if (present) { ctx = false; continue; }
+    if (marked) ctx = true;
+    if (!ctx) continue;
+    const a = s.index, b = a + s[0].length;
+    toks.forEach((t, k) => {
+      if (t.i < a || t.i >= b || !['i', 'you', 'we', 'they', 'he', 'she'].includes(t.lw) || !toks[k + 1]) return;
+      let j = k + 1; if (W_ADV.has(toks[j].lw) && toks[j + 1]) j++;
+      const v = toks[j], base = verbBase(v.lw) ? v.lw : (v.lw.endsWith('s') && baseOfForm(v.lw)) || null;
+      if (!base || (base === v.lw && !verbBase(v.lw)) || W_AUX.has(v.lw)) return;
+      if (!marked && W_STATIVE.test(base)) return;   /* "I think it was fun" puede ser una opinión de hoy */
+      const past = pastOf(base, t.lw); used.add(j);
+      add(v.i, v.w.length, past, 'past-time', `Estás contando algo que ya pasó, así que el verbo va en pasado: «${past}», no «${v.w}».`, 'Tiempo verbal');
+    });
+  }
+  toks.forEach((t, k) => {
+    const n1 = toks[k + 1];
+    /* he/she/it (o "my brother", "her mom"…) + verbo sin -s */
+    const third = ['he', 'she', 'it'].includes(t.lw) || (W_PERSON.test(t.lw) && toks[k - 1] && /^(my|his|her|your|our|their|the)$/.test(toks[k - 1].lw));
+    if (third && n1 && !(toks[k - 1] && W_AUX.has(toks[k - 1].lw))) {
+      let j = k + 1; if (W_ADV.has(toks[j].lw) && toks[j + 1]) j++;
+      const v = toks[j];
+      if (!used.has(j) && verbBase(v.lw)) { used.add(j); add(v.i, v.w.length, thirdPerson(v.lw), 'he-s', `Con he / she / it el verbo lleva -s: «${t.w} ${thirdPerson(v.lw)}», no «${t.w} ${v.w}».`); }
+    }
+    /* did / didn't / does / doesn't + verbo en pasado o con -s */
+    if (/^(did|didn't|didnt|does|doesn't|doesnt|do|don't|dont)$/.test(t.lw) && n1) {
+      let j = k + 1; if (/^(you|i|we|they|he|she|it|not)$/.test(toks[j].lw) && toks[j + 1]) j++;
+      const v = toks[j], base = baseOfForm(v.lw);
+      if (base && !used.has(j) && !/ing$/.test(v.lw)) { used.add(j); add(v.i, v.w.length, base, 'did-base', `Después de «${t.w}» el verbo va en forma normal: «${base}», no «${v.w}».`); }
+    }
+    /* can / must / will… + verbo con -s, en pasado, o con "to" */
+    if (W_MODALS.has(t.lw) && n1) {
+      if (n1.lw === 'to' && toks[k + 2] && verbBase(toks[k + 2].lw) && t.lw !== 'ought') add(n1.i, toks[k + 2].i - n1.i, '', 'modal-to', `Después de «${t.w}» no va «to»: «${t.w} ${toks[k + 2].w}».`);
+      else { const base = baseOfForm(n1.lw); if (base && !/ing$/.test(n1.lw) && !used.has(k + 1)) { used.add(k + 1); add(n1.i, n1.w.length, base, 'modal-base', `Después de «${t.w}» el verbo va en forma normal: «${t.w} ${base}».`); } }
+    }
+    /* am / is / are y was / were según la persona: "they is" → "they are" */
+    if (n1 && /^(am|is|are|was|were)$/.test(n1.lw) && /^(i|you|we|they|he|she|it)$/.test(t.lw) && !(toks[k - 1] && /^(if|wish)$/.test(toks[k - 1].lw))) {
+      const past = /^(was|were)$/.test(n1.lw), ok = t.lw === 'i' ? (past ? 'was' : 'am') : /^(you|we|they)$/.test(t.lw) ? (past ? 'were' : 'are') : (past ? 'was' : 'is');
+      if (ok !== n1.lw) { used.add(k + 1); add(n1.i, n1.w.length, ok, 'be-agr', `Con «${t.w}» se usa «${ok}»: «${t.w} ${ok}», no «${t.w} ${n1.w}».`); }
+    }
+    /* like / want / need… + verbo sin "to": "I like play" → "I like to play" */
+    if (/^(like|likes|liked|love|loves|loved|hate|hates|want|wants|wanted|need|needs|needed|decide|decided|try|tries|tried|prefer|prefers)$/.test(t.lw) && n1 && !used.has(k + 1)) {
+      const e = DICT_IX.w.get(n1.lw);
+      if (e && /^v/.test(e.pos) && verbBase(n1.lw) && !/^(to|be)$/.test(n1.lw)) { used.add(k + 1); add(n1.i, n1.w.length, 'to ' + n1.w, 'verb-to', `Después de «${t.w}» el otro verbo lleva «to»: «${t.w} to ${n1.w}»${/^(like|love|hate)/.test(t.lw) ? ` (también se puede «${t.w} ${n1.lw.replace(/e$/, '')}ing»)` : ''}.`); }
+    }
+    /* "i" en minúscula */
+    if (/^i('m|'ve|'ll|'d)?$/.test(t.w)) add(t.i, 1, 'I', 'i-upper', 'El pronombre «I» (yo) siempre va con mayúscula.', 'Mayúsculas');
+    /* días, meses, idiomas y países en minúscula */
+    if (W_CAPS.includes(t.w)) add(t.i, t.w.length, cap1(t.w), 'caps', 'En inglés los días, meses, idiomas y países van con mayúscula.', 'Mayúsculas');
+    /* a / an */
+    if (t.lw === 'a' && n1 && /^[aeiou]/i.test(n1.w) && !W_AN_EXC.test(n1.w)) add(t.i, 1, t.w === 'A' ? 'An' : 'an', 'a-an', 'Antes de un sonido vocal se usa «an»: «an apple», «an hour».');
+    if (t.lw === 'an' && n1 && !/^[aeiou]/i.test(n1.w) && !W_H_SILENT.test(n1.w)) add(t.i, 2, t.w === 'An' ? 'A' : 'a', 'a-an', 'Antes de un sonido consonante se usa «a»: «a car», «a house».');
+  });
+  /* Expresiones típicas que vienen del español */
+  const R = [
+    [/\b(i|you|we|they|he|she|(?:my|his|her|your|our|their|the) [a-z]+)\s+(have|has)\s+(\d+|[a-z]+(?:-[a-z]+)?)\s+years(?!\s+old)\b/gi, m => { const s = m[1].toLowerCase(), be = s === 'i' ? 'am' : /^(you|we|they)$/.test(s) || /s$/.test(s) ? 'are' : 'is'; return [m.index + m[1].length + 1, m[0].length - m[1].length - 1, `${be} ${m[3]} years old`, 'La edad se dice con «be»: «I am 30 years old», no «I have 30 years».', 'Expresión']; }],
+    [/\bthere is\s+(many|several|a lot of|lots of|two|three|four|five|six|seven|eight|nine|ten)\b/gi, m => [m.index, 8, m[0][0] === 'T' ? 'There are' : 'there are', 'Con plural se usa «there are»: «there are many people».', 'Gramática']],
+    [/\bpeople\s+(is|was|has)\b/gi, m => [m.index + m[0].length - m[1].length, m[1].length, { is: 'are', was: 'were', has: 'have' }[m[1].toLowerCase()], '«People» es plural: «people are», «people have».', 'Gramática']],
+    [/\bexplain\s+me\b/gi, m => [m.index, m[0].length, 'explain to me', '«Explain» lleva «to»: «explain to me».', 'Expresión']],
+    [/\bdepends?\s+of\b/gi, m => [m.index, m[0].length, m[0].replace(/of$/i, 'on'), 'En inglés se dice «depend on», no «depend of».', 'Expresión']],
+    [/\bmarried\s+with\b/gi, m => [m.index, m[0].length, 'married to', 'Se dice «married to» (casada con).', 'Expresión']],
+    [/\bdiscuss(ed)?\s+about\b/gi, m => [m.index, m[0].length, m[0].replace(/\s+about$/i, ''), '«Discuss» no lleva «about»: «discuss the plan».', 'Expresión']],
+    [/\blisten(s|ed|ing)?\s+(?!to\b)(music|the radio|songs?|podcasts?|me|him|her|them|us)\b/gi, m => [m.index, m[0].length - m[2].length - 1, m[0].slice(0, m[0].length - m[2].length - 1) + ' to', '«Listen» lleva «to»: «listen to music».', 'Expresión']],
+    [/\barrive(s|d)?\s+to\b/gi, m => [m.index, m[0].length, m[0].replace(/to$/i, 'at'), 'Se dice «arrive at» (un lugar) o «arrive in» (una ciudad), no «arrive to».', 'Expresión']],
+    [/\bthink\s+in\b/gi, m => [m.index, m[0].length, 'think about', 'Para «pensar en» se dice «think about».', 'Expresión']],
+    [/\bsay\s+me\b/gi, m => [m.index, m[0].length, 'tell me', 'Para «decirme» se usa «tell me».', 'Expresión']],
+    [/\bin the night\b/gi, m => [m.index, m[0].length, 'at night', 'Se dice «at night» (en la noche).', 'Expresión']],
+    [/\bgo(es)?\s+to\s+home\b/gi, m => [m.index, m[0].length, m[0].replace(/\s+to\s+home$/i, ' home'), 'Con «home» no va «to»: «go home».', 'Expresión']]
+  ];
+  const calques = [];
+  R.forEach(([re, f]) => { for (const m of text.matchAll(re)) { const [off, len, right, es, type] = f(m); calques.push({ off, len, wrong: text.substr(off, len), right, rule: 'es-' + re.source.slice(2, 14), es, type }); } });
+  return [...calques, ...out];   /* primero las expresiones del español: son las más seguras */
+}
+const LT_ES = {
+  MORFOLOGIK_RULE_EN_US: e => e.right ? `Se escribe «${e.right}»${gloss(e.right) ? ` (${gloss(e.right)})` : ''}.` : 'Esta palabra está mal escrita.',
+  EN_CONTRACTION_SPELLING: e => `La contracción se escribe con apóstrofo: «${e.right}».`,
+  UPPERCASE_SENTENCE_START: () => 'La oración empieza con mayúscula.',
+  I_LOWERCASE: () => 'El pronombre «I» (yo) siempre va con mayúscula.',
+  EN_A_VS_AN: () => 'Usa «an» antes de un sonido vocal (an apple) y «a» antes de un sonido consonante (a car).',
+  I_AM_VB: () => 'Después de «am / is / are» no va otro verbo en forma normal: «I agree», no «I am agree».',
+  SHORT_COMPARATIVES: e => `Con adjetivos cortos el comparativo termina en -er: «${e.right}», no «${e.wrong}».`,
+  OBJECTIVE_CASE: () => 'Después de un verbo o una preposición se usa me, you, him, her, us, them: «with them», no «with they».',
+  HE_VERB_AGR: () => 'Con he / she / it el verbo lleva -s o cambia: «he has», «she likes».',
+  DID_BASEFORM: () => 'Después de «did / didn\'t» el verbo va en forma normal: «didn\'t go».',
+  MD_BASEFORM: () => 'Después de can / must / should / will… el verbo va en forma normal: «can go».',
+  HAVE_PART_AGREEMENT: () => 'Después de have / has va el participio: «have gone», «has seen».',
+  BEEN_PART_AGREEMENT: () => 'Después de «been» va el participio o la forma -ing.',
+  ENGLISH_WORD_REPEAT_RULE: () => 'Repetiste la misma palabra dos veces.',
+  COMMA_PARENTHESIS_WHITESPACE: () => 'No va espacio antes de la coma o el punto, y sí va uno después.',
+  WHITESPACE_RULE: () => 'Hay espacios de más.',
+  DOUBLE_PUNCTUATION: () => 'Hay un signo repetido.',
+  EN_SPECIFIC_CASE: () => 'Este nombre va con mayúscula.',
+  YOUR_YOU_RE: () => '«your» = tu; «you\'re» = you are (tú eres / estás).',
+  TO_TOO: () => '«too» = también o demasiado; «to» = a, para.',
+  THEN_THAN: () => 'Para comparar se usa «than» (que); «then» significa «luego».',
+  THAN_THEN: () => '«then» significa «luego»; «than» se usa para comparar.',
+  PEOPLE_VBZ: () => '«People» es plural: «people are».',
+  MANY_NN: () => '«many» va con plurales (many friends); «much» con cosas que no se cuentan (much water).',
+  MUCH_COUNTABLE: () => '«much» va con cosas que no se cuentan (much water); con plurales usa «many».',
+  EVERY_EACH_SINGULAR: () => '«every / each» va con singular: «every day».',
+  A_PLURAL: () => 'No uses «a / an» con palabras en plural.',
+  CD_NN: () => 'Después de un número mayor que uno, el sustantivo va en plural.'
+};
+const LT_CAT = {
+  TYPOS: ['Ortografía', 'Revisa cómo se escribe esta palabra.'], GRAMMAR: ['Gramática', 'La forma de esta palabra no calza con el resto de la oración.'],
+  CASING: ['Mayúsculas', 'Revisa si va con mayúscula o minúscula.'], PUNCTUATION: ['Puntuación', 'Revisa la coma o el punto.'],
+  CONFUSED_WORDS: ['Palabra confundida', 'Esta palabra se parece a otra, pero significa algo distinto.'], COLLOCATIONS: ['Expresión', 'En inglés esto se dice de otra forma.'],
+  NONSTANDARD_PHRASES: ['Expresión', 'En inglés esto se dice de otra forma.'], SEMANTICS: ['Sentido', 'Revisa el sentido de esta parte.'], MISC: ['Revisa', 'Revisa esta parte.']
+};
+async function languageTool(text) {
+  const body = new URLSearchParams({ text, language: 'en-US', motherTongue: 'es' });
+  const r = await fetch('https://api.languagetool.org/v2/check', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  const OBJ = { i: 'me', he: 'him', she: 'her', we: 'us', they: 'them' };
+  /* Se omiten las sugerencias de estilo y la coma opcional antes de "and / but" */
+  return d.matches.filter(m => LT_CAT[m.rule.category.id] && m.rule.issueType !== 'style' && !/COMMA_COMPOUND/.test(m.rule.id)).map(m => {
+    const e = { off: m.offset, len: m.length, wrong: text.substr(m.offset, m.length), right: (m.replacements[0] || {}).value || '', rule: m.rule.id };
+    /* "with they" → "with them" (LanguageTool a veces propone otro pronombre) */
+    if (m.rule.id === 'OBJECTIVE_CASE') e.right = e.wrong.replace(/\b(i|he|she|we|they)$/i, p => OBJ[p.toLowerCase()]);
+    const [type, generic] = LT_CAT[m.rule.category.id];
+    e.type = type;
+    e.es = LT_ES[m.rule.id] ? LT_ES[m.rule.id](e) : generic;
+    if (e.right && e.right !== e.wrong && e.right.toLowerCase() === e.wrong.toLowerCase()) {   /* solo cambia la mayúscula */
+      e.type = 'Mayúsculas';
+      if (W_CAPS.includes(e.wrong.toLowerCase())) e.es = `En inglés los días, meses, idiomas y países van con mayúscula: «${e.right}».`;
+      else if (m.rule.id.startsWith('MORFOLOGIK')) e.es = `Va con mayúscula: «${e.right}».`;
+    }
+    return e;
+  }).filter(e => !(e.rule.startsWith('MORFOLOGIK') && /^[A-Z]/.test(e.wrong) && e.off > 0));   /* nombres propios */
+}
+async function checkWriting(text, question = '') {
+  try { await loadDict(); } catch (e) {}
+  const pastQ = /\b(did|was|were)\b/i.test(question) || W_PAST_MARK.test(question);
+  const local = DICT ? localWritingRules(text, pastQ) : [];
+  let lt = [], online = true;
+  try { lt = await languageTool(text); } catch (e) { online = false; }
+  /* Primero mis reglas (explican mejor en español); LanguageTool agrega lo que ellas no ven */
+  const all = [], overlaps = a => all.some(b => a.off < b.off + b.len && b.off < a.off + a.len);
+  [...local, ...lt].forEach(e => { if (!overlaps(e)) all.push(e); });
+  return { errors: online || DICT ? all.sort((a, b) => a.off - b.off) : null, online };
+}
+function correctedText(text, errors) {
+  let out = text;
+  [...errors].sort((a, b) => b.off - a.off).forEach(e => { out = out.slice(0, e.off) + e.right + out.slice(e.off + e.len); });
+  return out.replace(/ {2,}/g, ' ');
+}
+function markedHTML(text, errors) {
+  let html = '', pos = 0;
+  errors.forEach(e => { html += esc(text.slice(pos, e.off)) + `<del>${esc(e.wrong)}</del>${e.right ? `<ins>${esc(e.right)}</ins>` : ''}`; pos = e.off + e.len; });
+  return html + esc(text.slice(pos));
+}
+function fixHTML(m) {
+  if (m.status === 'checking') return '<div class="wfix"><p class="muted small center">🔎 Revisando tu texto…</p></div>';
+  if (!m.errors) return `<div class="wfix"><p class="err">⚠️ No pude revisar tu texto. Quedó guardado.</p><button class="btn ghost wide" data-act="wretry" data-k="${m.k}">Revisar otra vez</button></div>`;
+  return `<div class="wfix">${m.errors.length ? `<div class="wfix-text">${markedHTML(m.text, m.errors)}</div>
+      ${m.errors.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}
+      <div class="wfix-ok"><span class="label">Texto corregido</span><div>${tapText(correctedText(m.text, m.errors))}</div></div>`
+    : '<p class="wfix-perfect">✅ ¡Muy bien! No encontré errores.</p>'}
+    ${m.online === false ? '<p class="muted small">📴 Sin internet revisé solo lo básico. Con conexión la corrección es más completa.</p>' : ''}</div>`;
+}
+/* Guarda el texto y suma sus errores al historial (si se revisa de nuevo, reemplaza los anteriores) */
+function saveWriting(entry, errors, online) {
+  const wr = S.writing || (S.writing = { texts: [], errs: {} });
+  const key = e => `${e.wrong.toLowerCase()} → ${(e.right || '').toLowerCase()}`;
+  (entry.errors || []).forEach(e => { const it = wr.errs[key(e)]; if (it && --it.n <= 0) delete wr.errs[key(e)]; });
+  entry.errors = errors ? errors.map(({ wrong, right, type, es, rule }) => ({ wrong, right, type, es, rule })) : null;
+  entry.partial = !!errors && online === false;
+  if (!wr.texts.includes(entry)) wr.texts.push(entry);
+  if (wr.texts.length > 200) wr.texts.splice(0, wr.texts.length - 200);
+  if (errors) {
+    errors.forEach(e => {
+      const it = wr.errs[key(e)] || (wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, n: 0, last: 0 });
+      it.n++; it.last = Date.now();
+    });
+    if (!entry.counted) { entry.counted = true; trackType('write', !errors.length); }
+  }
+  save();
+}
+const wordCount = s => (s.match(/[A-Za-z']+/g) || []).length;
+let W = null;
+function startWrite(id) {
+  const topic = WRITE_TOPICS.find(t => t.id === id); if (!topic) return;
+  W = { topic, qi: 0, log: [], showEs: {}, draft: '', busy: false, done: false };
+  W.log.push({ who: 'app', en: topic.questions[0][0], es: topic.questions[0][1] });
+  document.body.classList.add('focus'); window.scrollTo(0, 0); renderWriteChat();
+}
+function renderWriteChat() {
+  const t = W.topic, last = W.log[W.log.length - 1];
+  const chat = W.log.map((m, i) => m.who === 'app'
+    ? `<div class="bubble npc"><div class="row gap-s">${sayBtn(m.en, 'sm')}<span class="grow">${tapText(m.en)}</span></div><button class="tr" data-act="wtr" data-i="${i}">${W.showEs[i] ? esc(m.es) : 'Ver traducción'}</button></div>`
+    : `<div class="bubble me wr">${esc(m.text)}</div>${fixHTML(m)}`).join('');
+  const composer = W.done ? `<div class="end-card"><b>🎉 ¡Terminaste este tema!</b><p class="muted small">Respondiste todas las preguntas.</p><button class="btn primary wide" data-act="wend">Ver resumen</button></div>`
+    : `<div class="composer card"><textarea id="wtext" rows="4" placeholder="Escribe tu respuesta en inglés…" autocorrect="off" autocapitalize="sentences" spellcheck="false" autocomplete="off" ${W.busy ? 'disabled' : ''}>${esc(W.draft)}</textarea>
+      <div class="row between"><small class="muted" id="wcount">${wordCount(W.draft)} palabras</small><button class="btn primary" data-act="wsend" ${W.busy ? 'disabled' : ''}>${W.busy ? 'Revisando…' : 'Revisar ✓'}</button></div></div>
+      ${t.words.length && W.qi === 0 ? `<p class="label">Palabras útiles</p><div class="word-chips left">${t.words.map(([en, es]) => `<button class="word-chip" data-act="say" data-t="${esc(en)}"><b>${esc(en)}</b><small>${esc(es)}</small></button>`).join('')}</div>` : ''}
+      <div class="row gap" style="margin-top:12px">${t.id === 'free' || last.who !== 'app' ? '' : `<button class="btn ghost grow" data-act="wskip">Saltar pregunta</button>`}<button class="btn ghost grow" data-act="wend">Terminar</button></div>`;
+  view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="grow"><b>${t.icon} ${esc(t.title)}</b><div class="bar"><i style="width:${W.done ? 100 : pct(W.qi, t.questions.length)}%"></i></div></div></div>
+    ${W.log.length === 1 ? '<p class="muted small center">Responde en inglés con frases completas. La app te corrige y te explica cada error en español.</p>' : ''}
+    <div class="chat">${chat}</div><div class="dlg-input">${composer}</div>`;
+}
+async function sendWriting() {
+  if (!W || W.busy) return;
+  const text = W.draft.trim();
+  if (wordCount(text) < 2) { toast('Escribe al menos una frase corta en inglés'); return; }
+  const q = [...W.log].reverse().find(m => m.who === 'app');
+  const entry = { t: Date.now(), topic: W.topic.id, q: q ? q.en : '', text, words: wordCount(text) };
+  const m = { who: 'me', text, status: 'checking', k: W.log.length, entry };
+  W.log.push(m); W.draft = ''; W.busy = true; renderWriteChat();
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 50);
+  const res = await checkWriting(text, entry.q);
+  saveWriting(entry, res.errors, res.online);
+  if (!W || !W.log.includes(m)) return;
+  m.status = 'done'; m.errors = res.errors; m.online = res.online; W.busy = false;
+  addXp(res.errors && !res.errors.length ? 5 : 3);
+  nextWriteQuestion(false);
+}
+function nextWriteQuestion(skip) {
+  const t = W.topic;
+  if (t.id !== 'free') {
+    W.qi++;
+    if (W.qi < t.questions.length) { const [en, es] = t.questions[W.qi]; W.log.push({ who: 'app', en, es }); speak(en); }
+    else W.done = true;
+  }
+  renderWriteChat();
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 50);
+}
+function finishWrite() {
+  const msgs = W.log.filter(m => m.who === 'me' && m.errors), errs = msgs.flatMap(m => m.errors);
+  const words = msgs.reduce((a, m) => a + wordCount(m.text), 0), perfect = msgs.filter(m => !m.errors.length).length;
+  const xp = msgs.length ? 5 : 0, t = W.topic;
+  if (xp) addXp(xp);
+  W = null;
+  if (!msgs.length) { go('write'); return; }
+  view().innerHTML = `<div class="summary"><div class="emoji">✍️</div><h1>¡Bien escrito!</h1>
+    <div class="sum-stats"><div class="stat"><b>${msgs.length}</b><small>Respuestas</small></div><div class="stat"><b>${words}</b><small>Palabras</small></div><div class="stat"><b>${perfect}/${msgs.length}</b><small>Sin errores</small></div></div></div>
+    ${errs.length ? `<section class="card"><h2>📝 Para repasar</h2>${errs.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}</section>`
+      : '<section class="card center"><b>🌟 ¡No tuviste errores en este tema!</b></section>'}
+    <p class="muted small center">Tus errores quedaron en Progreso y en el archivo que exportas. Para una revisión más completa, exporta tu progreso y dile a Claude «revisa mi escritura».</p>
+    <button class="btn primary wide" data-act="tab" data-tab="write">Continuar</button>`;
+}
+function renderWriteTab() {
+  const wr = S.writing || { texts: [], errs: {} }, texts = wr.texts || [];
+  const words = texts.reduce((a, e) => a + (e.words || 0), 0), pending = texts.filter(e => !e.errors || e.partial).length;
+  return topBar('Escribir', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
+    <p class="muted small">Elige un tema y responde en inglés. La app corrige tu ortografía y tu gramática, y te explica cada error en español.</p>
+    ${texts.length ? `<div class="stats"><div class="stat">📝<b>${texts.length}</b><small>Textos</small></div><div class="stat">🔤<b>${words}</b><small>Palabras</small></div><div class="stat">🎯<b>${Object.keys(wr.errs || {}).length}</b><small>Errores distintos</small></div></div>` : ''}
+    <div class="grid2">${WRITE_TOPICS.map(t => `<button class="sec-card topic" data-act="write" data-id="${t.id}"><span class="topic-icon">${t.icon}</span><b>${esc(t.title)}</b><small>${t.id === 'free' ? 'Tú eliges el tema' : `${t.questions.length} preguntas`}</small></button>`).join('')}</div>
+    ${texts.length ? `<section class="card"><h2>🕘 Tus últimos textos</h2>${texts.slice(-8).reverse().map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return `<button class="word-row as-btn" data-act="wview" data-t="${e.t}"><span>${tp ? tp.icon : '✍️'}</span><div class="grow"><span class="small">${esc(e.text.length > 70 ? e.text.slice(0, 70) + '…' : e.text)}</span><span class="muted small block">${new Date(e.t).toLocaleDateString('es-CL')}${tp ? ' · ' + esc(tp.title) : ''}</span></div>${e.errors ? `<span class="score-tag ${e.errors.length ? 'bad' : 'good'}">${e.errors.length ? e.errors.length + ' ✗' : '✓'}</span>` : '<span class="score-tag">Sin revisar</span>'}</button>`; }).join('')}
+      ${pending ? `<button class="btn ghost wide" data-act="wpending">Revisar ${pending} ${pending === 1 ? 'texto pendiente' : 'textos pendientes'}</button>` : ''}</section>` : ''}
+    <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Para una corrección más completa, exporta tu progreso y dile a Claude «revisa mi escritura». Es gratis.</p></div></section>`;
+}
+function viewWriting(t) {
+  const e = ((S.writing || {}).texts || []).find(x => String(x.t) === String(t)); if (!e) return;
+  const tp = WRITE_TOPICS.find(x => x.id === e.topic);
+  openSheet(`<div class="sheet-top"><b class="grow">${tp ? tp.icon + ' ' + esc(tp.title) : '✍️ Texto'}</b><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div>
+    ${e.q ? `<p class="muted small">${tapText(e.q)}</p>` : ''}<div class="bubble me wr" style="max-width:100%">${esc(e.text)}</div>${fixHTML({ text: e.text, errors: e.errors, status: 'done', k: -1 })}`, 'word');
+  SHEET.word = '';
+}
+async function reviewPending() {
+  const list = ((S.writing || {}).texts || []).filter(e => !e.errors || e.partial);
+  if (!list.length) return;
+  toast('🔎 Revisando…');
+  let ok = 0;
+  for (const e of list) { const r = await checkWriting(e.text, e.q); if (!r.online) continue; saveWriting(e, r.errors, true); ok++; }
+  toast(ok ? `✅ Revisé ${ok} ${ok === 1 ? 'texto' : 'textos'}` : '📴 Necesitas internet para revisar');
+  if (tab === 'write' && !W) render();
+}
+
 /* ===== ESTADÍSTICAS ===== */
 function optionEs(d, en) {
   if (!d) return '';
@@ -1028,7 +1346,8 @@ function renderStats() {
   const mastered = Object.values(S.cards).filter(c => c.box >= 4).length;
   const daysPracticed = Object.values(S.days).filter(d => d.xp > 0).length;
   const dWrong = Object.entries(S.dlg).flatMap(([id, st]) => Object.entries(st.wrong || {}).map(([en, n]) => ({ id, en, n }))).sort((a, b) => b.n - a.n).slice(0, 3);
-  const ps = S.pronSessions || [];
+  const ps = S.pronSessions || [], wTexts = (S.writing && S.writing.texts) || [];
+  const wErr = Object.values((S.writing && S.writing.errs) || {}).sort((a, b) => b.n - a.n || b.last - a.last).slice(0, 5);
   return topBar('Progreso') + `
   <div class="seg"><button class="${statSeg === 'week' ? 'on' : ''}" data-act="seg" data-seg="stats:week">Semana</button><button class="${statSeg === 'month' ? 'on' : ''}" data-act="seg" data-seg="stats:month">Meses</button></div>
   <section class="card"><span class="label">XP ganada</span>
@@ -1051,6 +1370,9 @@ function renderStats() {
   </section>
   ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
   ${ps.length ? `<section class="card"><h2>🎙️ Sesiones de pronunciación</h2><p class="muted small">${ps.length} ${ps.length === 1 ? 'sesión' : 'sesiones'} · promedio ${pct(ps.reduce((a, s) => a + s.avg, 0), ps.length * 100)}%</p>${ps.slice(-4).reverse().map(s => `<div class="word-row"><div class="grow"><span>${esc(s.group)}</span><span class="muted small block">${new Date(s.t).toLocaleDateString('es-CL')} · ${s.done}/${s.n} frases</span></div><span class="score-tag ${s.avg >= 70 ? 'good' : 'bad'}">${s.avg}%</span></div>`).join('')}</section>` : ''}
+  ${wTexts.length ? `<section class="card"><h2>✍️ Escritura</h2><p class="muted small">${wTexts.length} ${wTexts.length === 1 ? 'texto' : 'textos'} · ${wTexts.reduce((a, e) => a + (e.words || 0), 0)} palabras · ${wTexts.filter(e => e.errors && !e.errors.length).length} sin errores</p>
+    ${wErr.length ? `<span class="label">Tus errores más frecuentes</span>${wErr.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)} · ${e.n}×</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}` : '<p class="muted small">¡Aún no hay errores de escritura! 🌟</p>'}
+    <button class="btn ghost wide" data-act="tab" data-tab="write">✍️ Seguir escribiendo</button></section>` : ''}
   ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id), es = optionEs(d, x.en); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span>${es ? `<span class="muted small block">${esc(es)}</span>` : ''}<span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
   <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Exporta tu progreso, guárdalo en tu PC en <b>APP 2.0\\progreso</b> y dile a Claude "revisa mi progreso".</p></div></section>
   <button class="btn primary wide" data-act="export">${ic('upload', 'sm')} Exportar progreso</button>`;
@@ -1068,6 +1390,14 @@ function buildSummary() {
     palabras_dificiles: weakItems(30).map(i => ({ en: i.en, es: i.es, errores: i.fail, aciertos: i.ok })),
     palabras_a_mejorar_al_hablar: weakSounds(20).map(([w, p]) => ({ palabra: w, errores: p.fail, aciertos: p.ok })),
     sesiones_pronunciacion: (S.pronSessions || []).slice(-15).map(s => ({ fecha: dayStr(new Date(s.t)), grupo: s.group, frases: `${s.done}/${s.n}`, promedio: s.avg + '%', palabras_a_practicar: s.words })),
+    escritura: (() => {
+      const wr = S.writing || { texts: [], errs: {} };
+      return {
+        textos: wr.texts.length, palabras: wr.texts.reduce((a, e) => a + (e.words || 0), 0),
+        errores_frecuentes: Object.values(wr.errs).sort((a, b) => b.n - a.n).slice(0, 25).map(e => ({ error: e.wrong, correcto: e.right, tipo: e.type, explicacion: e.es, veces: e.n })),
+        ultimos_textos: wr.texts.slice(-15).map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return { fecha: dayStr(new Date(e.t)), tema: tp ? tp.title : e.topic, pregunta: e.q, texto: e.text, revisado: e.errors ? (e.partial ? 'solo lo básico (sin internet)' : 'sí') : 'no', errores: (e.errors || []).map(x => ({ error: x.wrong, correcto: x.right, explicacion: x.es })) }; })
+      };
+    })(),
     tarjetas: { total: Object.keys(S.cards).length, por_caja: [1, 2, 3, 4, 5].map(b => Object.values(S.cards).filter(c => c.box === b).length) }
   };
 }
@@ -1126,7 +1456,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.2 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 2.3 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -1143,7 +1473,7 @@ const ACTIONS = {
   check: () => { if (!L) return; if (L.answered) nextExercise(); else evaluateLesson(); },
   speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; renderLesson(); },
   quit: () => {
-    const back = L ? 'lessons' : (D || P) ? 'talk' : 'cards';
+    const back = L ? 'lessons' : (D || P) ? 'talk' : W ? 'write' : 'cards';
     if (((L && !L.intro) || (D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
     go(back);
   },
@@ -1184,6 +1514,20 @@ const ACTIONS = {
   startrev: el => startReview(!!el.dataset.all),
   flip: () => { F.flip = !F.flip; render(); if (F.flip) speak(S.cards[F.queue[F.i]].en); },
   rate: el => rateCard(el.dataset.v === '1'),
+  write: el => startWrite(el.dataset.id),
+  wsend: () => sendWriting(),
+  wskip: () => { if (W && !W.busy) nextWriteQuestion(true); },
+  wend: () => { if (W && !W.busy) finishWrite(); },
+  wtr: el => { const i = +el.dataset.i; W.showEs[i] = !W.showEs[i]; renderWriteChat(); },
+  wretry: async el => {
+    const m = W && W.log[+el.dataset.k]; if (!m) return;
+    m.status = 'checking'; renderWriteChat();
+    const r = await checkWriting(m.text, m.entry.q);
+    saveWriting(m.entry, r.errors, r.online);
+    m.status = 'done'; m.errors = r.errors; m.online = r.online; if (W) renderWriteChat();
+  },
+  wview: el => viewWriting(el.dataset.t),
+  wpending: () => reviewPending(),
   word: el => openWord(el.dataset.w),
   dict: () => openSearch(),
   sheetclose: () => closeSheet(),
@@ -1221,6 +1565,7 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'dq') { dictSearchQ = t.value; renderSearch(); }
+  else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
 });

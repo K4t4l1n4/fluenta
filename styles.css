@@ -36,8 +36,9 @@ html.noscroll,html.noscroll body{overflow:hidden}
 body.focus #tabs{display:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 button:disabled{cursor:default}
-input,select{width:100%;background:var(--surface2);border:1.5px solid var(--line);color:var(--text);border-radius:16px;padding:13px 15px;font:inherit;font-size:16px;-webkit-user-select:text;user-select:text;outline:none}
-input:focus,select:focus{border-color:var(--accent)}
+input,select,textarea{width:100%;background:var(--surface2);border:1.5px solid var(--line);color:var(--text);border-radius:16px;padding:13px 15px;font:inherit;font-size:16px;-webkit-user-select:text;user-select:text;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:110px;line-height:1.5;display:block}
 input[type=range]{padding:0;background:none;border:0;accent-color:var(--accent)}
 h1{font-size:26px;font-weight:700;margin:2px 0;letter-spacing:-.01em}
 h2{font-size:17px;font-weight:600;margin:0 0 10px}
@@ -309,6 +310,26 @@ b{font-weight:600}
 #tabs .fab-tab{margin-top:-30px}
 #tabs .fab{width:60px;height:60px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;box-shadow:0 10px 24px rgba(123,92,240,.45);border:4px solid var(--bg1)}
 #tabs .fab .ic{width:26px;height:26px}
+
+/* ===== Escribir ===== */
+.topic{padding:16px 10px 14px}
+.topic-icon{font-size:30px;width:56px;height:56px;border-radius:18px;background:var(--surface2);display:grid;place-items:center}
+.topic b{font-size:14px;margin-top:6px}
+.bubble.me.wr{white-space:pre-wrap;word-break:break-word}
+.composer{padding:14px;margin-top:4px}
+.composer .row{margin-top:10px}
+.word-chips.left{justify-content:flex-start}
+.wfix{align-self:stretch;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow);margin-top:-4px}
+.wfix-text{font-size:16px;line-height:1.7;margin-bottom:10px;white-space:pre-wrap;word-break:break-word}
+.wfix del,.wfix-item del{color:var(--bad);text-decoration:line-through;background:var(--bad-soft);border-radius:4px;padding:0 3px}
+.wfix ins,.wfix-item ins{color:var(--ok);text-decoration:none;background:var(--ok-soft);border-radius:4px;padding:0 3px;margin-left:2px;font-weight:600}
+.wfix-item{border-top:1px solid var(--line);padding:10px 0;line-height:1.5}
+.wfix-item .small{color:var(--text);opacity:.85;margin-top:2px}
+.tag-type{display:inline-block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:2px}
+.wfix-ok{background:var(--ok-soft);border-radius:14px;padding:10px 12px;margin-top:8px;line-height:1.6}
+.wfix-ok .label{color:var(--ok)}
+.wfix-perfect{margin:0;font-weight:600;color:var(--ok)}
+.as-btn{width:100%;text-align:left}
 
 /* ===== Palabras que se pueden tocar ===== */
 .tw{cursor:pointer;border-radius:5px;text-decoration:underline dotted rgba(123,92,240,.45);text-decoration-thickness:1.5px;text-underline-offset:4px}

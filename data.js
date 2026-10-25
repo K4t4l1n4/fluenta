@@ -506,6 +506,68 @@ const DIALOGS = [
 ];
 
 /* ============================================================
+   ESCRIBIR: temas guiados de nivel A2
+   "questions" son las preguntas que hace la app, en orden.
+   "words" son palabras útiles para el tema.
+   ============================================================ */
+const WRITE_TOPICS = [
+  { id: "weekend", icon: "🛋️", title: "Mi fin de semana",
+    questions: [["What did you do last weekend?","¿Qué hiciste el fin de semana pasado?"],["Who were you with?","¿Con quién estabas?"],["What was the best part?","¿Qué fue lo mejor?"],["What are you going to do next weekend?","¿Qué vas a hacer el próximo fin de semana?"]],
+    words: [["went","fui"],["visited","visité"],["stayed at home","me quedé en casa"],["watched","vi (tele, película)"],["it was fun","fue divertido"]] },
+  { id: "routine", icon: "⏰", title: "Mi rutina",
+    questions: [["What time do you usually wake up?","¿A qué hora te despiertas normalmente?"],["What do you do in the morning?","¿Qué haces en la mañana?"],["What do you do after work?","¿Qué haces después del trabajo?"],["What do you do before you go to bed?","¿Qué haces antes de acostarte?"]],
+    words: [["usually","normalmente"],["always","siempre"],["then","luego"],["after that","después de eso"],["go to bed","acostarse"]] },
+  { id: "family", icon: "👨‍👩‍👧", title: "Mi familia",
+    questions: [["How many people are there in your family?","¿Cuántas personas hay en tu familia?"],["What is your mother or father like?","¿Cómo es tu mamá o tu papá?"],["Do you have brothers or sisters?","¿Tienes hermanos o hermanas?"],["What do you like to do together?","¿Qué les gusta hacer juntos?"]],
+    words: [["older","mayor"],["younger","menor"],["kind","amable"],["funny","chistoso"],["we often","a menudo nosotros"]] },
+  { id: "food", icon: "🍝", title: "Mi comida favorita",
+    questions: [["What is your favorite food?","¿Cuál es tu comida favorita?"],["Can you cook it? How?","¿Sabes cocinarla? ¿Cómo?"],["What do you usually eat for breakfast?","¿Qué tomas normalmente al desayuno?"],["Describe a restaurant you like.","Describe un restaurante que te guste."]],
+    words: [["delicious","delicioso"],["spicy","picante"],["I usually have","normalmente como"],["my favorite dish","mi plato favorito"],["recipe","receta"]] },
+  { id: "trip", icon: "✈️", title: "Mi último viaje",
+    questions: [["Where did you go on your last trip?","¿A dónde fuiste en tu último viaje?"],["How did you travel?","¿Cómo viajaste?"],["What did you see there?","¿Qué viste ahí?"],["Would you like to go back? Why?","¿Te gustaría volver? ¿Por qué?"]],
+    words: [["by plane","en avión"],["by bus","en bus"],["beautiful","precioso"],["the best thing was","lo mejor fue"],["because","porque"]] },
+  { id: "plans", icon: "🚀", title: "Mis planes",
+    questions: [["What are you going to do this year?","¿Qué vas a hacer este año?"],["Where would you like to travel?","¿A dónde te gustaría viajar?"],["What do you want to learn?","¿Qué quieres aprender?"],["What is your biggest dream?","¿Cuál es tu sueño más grande?"]],
+    words: [["I'm going to","voy a"],["I would like to","me gustaría"],["I hope","espero"],["someday","algún día"],["goal","meta"]] },
+  { id: "work", icon: "💼", title: "Mi trabajo",
+    questions: [["What do you do?","¿A qué te dedicas?"],["What do you like about your job?","¿Qué te gusta de tu trabajo?"],["What is difficult about it?","¿Qué es lo difícil?"],["Describe a typical day at work.","Describe un día típico en el trabajo."]],
+    words: [["I work as","trabajo como"],["coworkers","compañeros de trabajo"],["meeting","reunión"],["deadline","fecha límite"],["I'm good at","soy buena para"]] },
+  { id: "city", icon: "🏙️", title: "Mi ciudad",
+    questions: [["Where do you live?","¿Dónde vives?"],["What is your neighborhood like?","¿Cómo es tu barrio?"],["What is the best place in your city?","¿Cuál es el mejor lugar de tu ciudad?"],["What would you change in your city?","¿Qué cambiarías de tu ciudad?"]],
+    words: [["there is / there are","hay"],["quiet","tranquilo"],["crowded","lleno de gente"],["near","cerca"],["traffic","tráfico"]] },
+  { id: "friend", icon: "🤝", title: "Mi mejor amiga o amigo",
+    questions: [["Who is your best friend?","¿Quién es tu mejor amiga o amigo?"],["How did you meet?","¿Cómo se conocieron?"],["What is he or she like?","¿Cómo es él o ella?"],["What do you do together?","¿Qué hacen juntos?"]],
+    words: [["we met","nos conocimos"],["at school","en el colegio"],["honest","honesto"],["we laugh a lot","nos reímos mucho"],["since","desde"]] },
+  { id: "movie", icon: "🎬", title: "Una película o serie",
+    questions: [["What movie or series did you watch recently?","¿Qué película o serie viste hace poco?"],["What is it about?","¿De qué se trata?"],["Who is your favorite character? Why?","¿Quién es tu personaje favorito? ¿Por qué?"],["Do you recommend it? Why?","¿La recomiendas? ¿Por qué?"]],
+    words: [["it's about","se trata de"],["funny","chistosa"],["boring","aburrida"],["the ending","el final"],["I recommend it","la recomiendo"]] },
+  { id: "health", icon: "🏃‍♀️", title: "Salud y ejercicio",
+    questions: [["What do you do to stay healthy?","¿Qué haces para mantenerte sana?"],["How often do you exercise?","¿Con qué frecuencia haces ejercicio?"],["What healthy food do you like?","¿Qué comida saludable te gusta?"],["What would you like to change?","¿Qué te gustaría cambiar?"]],
+    words: [["twice a week","dos veces por semana"],["I try to","trato de"],["vegetables","verduras"],["sleep","dormir"],["I should","debería"]] },
+  { id: "childhood", icon: "🧸", title: "Cuando era niña",
+    questions: [["Where did you live when you were a child?","¿Dónde vivías cuando eras niña?"],["What did you like to play?","¿A qué te gustaba jugar?"],["Who was your best friend?","¿Quién era tu mejor amiga o amigo?"],["What was your favorite food?","¿Cuál era tu comida favorita?"]],
+    words: [["when I was a child","cuando era niña"],["I used to","solía"],["played","jugaba"],["my grandmother","mi abuela"],["every summer","cada verano"]] },
+  { id: "hobbies", icon: "🎨", title: "Mis pasatiempos",
+    questions: [["What do you do in your free time?","¿Qué haces en tu tiempo libre?"],["When did you start?","¿Cuándo empezaste?"],["Why do you like it?","¿Por qué te gusta?"],["What new hobby would you like to try?","¿Qué pasatiempo nuevo te gustaría probar?"]],
+    words: [["free time","tiempo libre"],["I enjoy","disfruto"],["relaxing","relajante"],["I started","empecé"],["try","probar"]] },
+  { id: "home", icon: "🏠", title: "Mi casa",
+    questions: [["Describe your house or apartment.","Describe tu casa o departamento."],["What is your favorite room? Why?","¿Cuál es tu pieza favorita? ¿Por qué?"],["What is there in your bedroom?","¿Qué hay en tu dormitorio?"],["What would you like to change?","¿Qué te gustaría cambiar?"]],
+    words: [["there is","hay (singular)"],["there are","hay (plural)"],["big","grande"],["bright","luminoso"],["next to","al lado de"]] },
+  { id: "shopping", icon: "🛍️", title: "De compras",
+    questions: [["What was the last thing you bought?","¿Qué fue lo último que compraste?"],["Do you prefer shopping online or in stores?","¿Prefieres comprar en línea o en tiendas?"],["What is too expensive in your city?","¿Qué es demasiado caro en tu ciudad?"],["Describe your favorite clothes.","Describe tu ropa favorita."]],
+    words: [["I bought","compré"],["cheap","barato"],["expensive","caro"],["online","en línea"],["comfortable","cómodo"]] },
+  { id: "tech", icon: "💻", title: "Tecnología",
+    questions: [["What apps do you use every day?","¿Qué apps usas todos los días?"],["How much time do you spend on your phone?","¿Cuánto tiempo pasas en el teléfono?"],["What is the best invention? Why?","¿Cuál es el mejor invento? ¿Por qué?"],["Could you live without the internet?","¿Podrías vivir sin internet?"]],
+    words: [["I use","uso"],["hours a day","horas al día"],["useful","útil"],["without","sin"],["I couldn't","no podría"]] },
+  { id: "english", icon: "📚", title: "Aprender inglés",
+    questions: [["Why are you learning English?","¿Por qué estás aprendiendo inglés?"],["What is difficult for you?","¿Qué te cuesta?"],["How do you practice?","¿Cómo practicas?"],["What do you want to do in English in the future?","¿Qué quieres hacer en inglés en el futuro?"]],
+    words: [["because","porque"],["pronunciation","pronunciación"],["every day","todos los días"],["I want to","quiero"],["fluently","con fluidez"]] },
+  { id: "free", icon: "✍️", title: "Escritura libre",
+    questions: [["Write about anything you want.","Escribe sobre lo que quieras."]],
+    words: [] }
+];
+
+/* ============================================================
    PRONUNCIACIÓN
    Cada frase es ["inglés", "español"].
    ============================================================ */
