@@ -17,6 +17,9 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+/* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
+const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
+  .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
 
 /* ===== Íconos (SVG propios, estilo línea) ===== */
 const ICONS = {
@@ -33,7 +36,8 @@ const ICONS = {
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   upload: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
   download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
-  trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/>'
+  trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/>',
+  dict: '<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><circle cx="12" cy="9" r="3"/><path d="m14.2 11.2 2 2"/>'
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -133,13 +137,15 @@ const allWords = () => allLessons().flatMap(l => l.words);
 const allSentences = () => allLessons().flatMap(l => l.sentences);
 const allPhrases = () => PRON.flatMap(c => c.phrases.map(p => p[0]));
 const PHRASE_ES = new Map(PRON.flatMap(c => c.phrases));
-/* Traducción de una palabra suelta según el contenido de la app */
+/* Traducción corta de una palabra suelta: primero el contenido de la app, luego el diccionario */
 function gloss(w) {
   const k = String(w).toLowerCase();
   const hit = allWords().find(x => x[0].toLowerCase() === k);
   if (hit) return hit[1];
   const c = Object.values(S.cards).find(x => x.en.toLowerCase() === k);
-  return c ? c.es : '';
+  if (c) return c.es;
+  const r = DICT ? lookup(k) : null;
+  return r ? (r.entry || r.base).es.split(/[;,]/)[0] : '';
 }
 const dialogEnds = d => Object.keys(d.nodes).filter(k => d.nodes[k].end);
 function autoLesson() {
@@ -285,11 +291,12 @@ const micControls = (text, ctx) => `<div class="speak-controls">
 const sayBtn = (t, cls = '') => `<button class="say ${cls}" data-act="say" data-t="${esc(t)}" aria-label="Escuchar">${ic('volume')}</button>`;
 
 /* ===== Navegación ===== */
-let tab = 'home', talkSeg = 'dialogs', cardSeg = 'review', statSeg = 'week', dictQ = '';
+let tab = 'home', talkSeg = 'dialogs', cardSeg = 'review', statSeg = 'week';
 let pronCurrent = null, pronResult = null, L = null, D = null, F = null, P = null;
 const view = () => $('#view');
 function go(t) {
   tab = t; L = null; D = null; F = null; P = null;
+  if (SHEET.open) closeSheet();
   document.body.classList.remove('focus');
   try { rec && rec.abort(); } catch (e) {}
   render(); window.scrollTo(0, 0);
@@ -465,18 +472,19 @@ function renderLesson() {
   const ex = L.queue[L.i], p = Math.round(L.i / L.queue.length * 100);
   let body = `<p class="ex-prompt">${ex.prompt}${ex.retry ? ' <span class="retry-tag">🔁 Otra vez</span>' : ''}</p>`;
   if (ex.type === 'choice') {
-    body += `<div class="ex-big">${esc(ex.big)}${ex.big === ex.say ? ' ' + sayBtn(ex.say) : ''}</div>${optionsHTML(ex)}`;
+    /* La palabra evaluada solo se puede tocar después de responder, para no revelar la respuesta */
+    body += `<div class="ex-big">${L.answered && ex.big === ex.say ? tapText(ex.big) : esc(ex.big)}${ex.big === ex.say ? ' ' + sayBtn(ex.say) : ''}</div>${optionsHTML(ex)}`;
   } else if (ex.type === 'listen') {
     body += `<div class="listen-wrap"><button class="speaker-big" data-act="say" data-t="${esc(ex.say)}" aria-label="Escuchar">${ic('volume')}</button><button class="round-btn" data-act="say" data-t="${esc(ex.say)}" data-slow="1" aria-label="Lento">🐢</button></div>${optionsHTML(ex)}`;
   } else if (ex.type === 'fill') {
-    body += `<p class="muted">${esc(ex.hint)}</p><div class="ex-sentence">${esc(ex.before)} <span class="blank">${L.sel != null ? esc(ex.options[L.sel]) : '&nbsp;'}</span>${esc(ex.after)}</div>${optionsHTML(ex)}`;
+    body += `<p class="muted">${esc(ex.hint)}</p><div class="ex-sentence">${tapText(ex.before)} <span class="blank">${L.sel != null ? esc(ex.options[L.sel]) : '&nbsp;'}</span>${tapText(ex.after)}</div>${optionsHTML(ex)}`;
   } else if (ex.type === 'order') {
     const used = new Set(L.built);
     body += `<div class="ex-big es">${esc(ex.big)}</div>
       <div class="answer-line">${L.built.map((ti, k) => `<button class="chip" data-act="chipback" data-k="${k}">${esc(ex.tokens[ti])}</button>`).join('') || '<span class="muted small">Toca las palabras en orden</span>'}</div>
       <div class="bank">${ex.tokens.map((t, i) => `<button class="chip ${used.has(i) ? 'used' : ''}" data-act="chip" data-i="${i}" ${used.has(i) ? 'disabled' : ''}>${esc(t)}</button>`).join('')}</div>`;
   } else if (ex.type === 'speak') {
-    body += `<div class="speak-card card"><div class="ex-big center-big">${esc(ex.big)}</div><p class="muted center">${esc(ex.sub)}</p>${micControls(ex.say, 'lesson')}
+    body += `<div class="speak-card card"><div class="ex-big center-big">${tapText(ex.big)}</div><p class="muted center">${esc(ex.sub)}</p>${micControls(ex.say, 'lesson')}
       <div id="micres">${L.result ? pronResultHTML(L.result) : '<p class="muted center small">Escucha, luego toca el micrófono y lee la frase</p>'}</div></div>
       ${!L.answered ? '<button class="link" data-act="speakskip">No puedo hablar ahora</button>' : ''}`;
   }
@@ -484,10 +492,10 @@ function renderLesson() {
   let foot = '';
   if (L.answered) {
     const title = L.skipped ? 'Sin problema 👌' : L.ok ? pick(['¡Correcto! 🎉', '¡Excelente! ⭐', '¡Muy bien! 💪', '¡Perfecto! 🙌']) : 'Casi… 😅';
-    const pair = `<b>${esc(ex.en)}</b> = ${esc(ex.es)}`, sentence = ex.type === 'order' || ex.type === 'fill';
+    const pair = `<b>${tapText(ex.en)}</b> = ${esc(ex.es)}`, sentence = ex.type === 'order' || ex.type === 'fill';
     const bodyTxt = L.skipped ? 'La practicarás en otra ocasión.'
-      : L.ok ? (sentence ? esc(ex.say) : ex.type === 'speak' ? '' : pair)
-      : `Respuesta correcta: ${sentence ? `<b>${esc(ex.say)}</b>` : pair}<br><small>La repetirás al final de la lección.</small>`;
+      : L.ok ? (sentence ? tapText(ex.say) : ex.type === 'speak' ? '' : pair)
+      : `Respuesta correcta: ${sentence ? `<b>${tapText(ex.say)}</b>` : pair}<br><small>La repetirás al final de la lección.</small>`;
     foot = `<div class="fb-title">${title}</div>${bodyTxt ? `<div class="fb-body">${bodyTxt}</div>` : ''}`;
   }
   const showBtn = ex.type !== 'speak' || L.answered;
@@ -582,8 +590,8 @@ function chooseOption(o, score) {
 function renderDialog() {
   const valid = D.opts.filter(o => o.go);
   const chat = D.log.map((m, i) => m.who === 'npc'
-    ? `<div class="bubble npc"><div class="row gap-s">${sayBtn(m.en, 'sm')}<span class="grow">${esc(m.en)}</span></div><button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button></div>`
-    : `<div class="bubble me">${esc(m.en)}${m.score != null ? `<span class="score-tag">🎤 ${m.score}%</span>` : ''}${m.es ? `<button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button>` : ''}</div>`).join('');
+    ? `<div class="bubble npc"><div class="row gap-s">${sayBtn(m.en, 'sm')}<span class="grow">${tapText(m.en)}</span></div><button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button></div>`
+    : `<div class="bubble me">${tapText(m.en)}${m.score != null ? `<span class="score-tag">🎤 ${m.score}%</span>` : ''}${m.es ? `<button class="tr" data-act="tr" data-i="${i}">${D.showEs[i] ? esc(m.es) : 'Ver traducción'}</button>` : ''}</div>`).join('');
   let input;
   if (D.finished) {
     input = `<div class="end-card"><b>🎉 ¡Fin de la conversación!</b><p class="muted small">Llegaste a un final. Repite el diálogo y responde distinto para descubrir otros caminos.</p><button class="btn primary wide" data-act="dfinish">Terminar</button></div>`;
@@ -591,13 +599,13 @@ function renderDialog() {
     input = `<p class="ex-prompt small">Elige tu respuesta:</p><div class="options">${D.opts.map((o, i) => `<button class="opt" data-act="dopt" data-i="${i}">${esc(o.en)}<span class="muted small block">${esc(o.es)}</span></button>`).join('')}</div>${D.fb ? `<div class="fb bad">${esc(D.fb)}</div>` : ''}`;
   } else {
     input = `<p class="ex-prompt small">Di en voz alta <u>una</u> de estas respuestas:</p>
-      <div class="stack">${valid.map(o => `<div class="say-card"><div class="row gap-s">${sayBtn(o.en, 'sm')}<b class="grow">${esc(o.en)}</b></div><span class="muted small block">${esc(o.es)}</span></div>`).join('')}</div>
+      <div class="stack">${valid.map(o => `<div class="say-card"><div class="row gap-s">${sayBtn(o.en, 'sm')}<b class="grow">${tapText(o.en)}</b></div><span class="muted small block">${esc(o.es)}</span></div>`).join('')}</div>
       ${micControls('', 'dialog')}<div id="micres">${D.result ? pronResultHTML(D.result) : '<p class="muted small center">Cada respuesta lleva la conversación por un camino distinto.</p>'}</div>
       ${D.result && !D.result.error && D.result.score < 60 ? '<p class="muted small center">Necesitas 60% para avanzar. ¡Tú puedes!</p>' : ''}
       <button class="link" data-act="dskip">No puedo hablar ahora (elegir al azar)</button>`;
   }
   view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="grow"><b>${D.d.icon} ${esc(D.d.title)}</b><div class="bar"><i style="width:${D.finished ? 100 : Math.min(95, pct(D.steps, D.max))}%"></i></div></div></div>
-    <div class="chat">${chat}</div><div class="dlg-input">${input}</div>`;
+    ${D.log.length === 1 ? '<p class="muted small center">💡 Toca cualquier palabra en inglés para ver qué significa.</p>' : ''}<div class="chat">${chat}</div><div class="dlg-input">${input}</div>`;
 }
 function finishDialog() {
   const id = D.d.id, firstEnd = !(S.ends[id] || []).includes(D.node);
@@ -621,15 +629,15 @@ function onDialogMic(r) {
     chooseOption(o, r.score);
   } else { if (!r.error) trackType('dialog', false); D.result = r; renderDialog(); }
 }
-const colorWords = r => r.words.map(w => `<span class="${w.ok ? 'w-ok' : 'w-bad'}">${esc(w.w)}</span>`).join(' ');
+const colorWords = r => r.words.map(w => `<span class="tw ${w.ok ? 'w-ok' : 'w-bad'}" data-act="word" data-w="${esc(w.w)}">${esc(w.w)}</span>`).join(' ');
 function pronHTML() {
   const cur = pronCurrent || PRON[0].phrases[0][0], curEs = PHRASE_ES.get(cur);
   const weakN = weakPhrases(10).length;
   return `<div class="card practice"><div class="speaker-wrap"><button class="speaker-big" data-act="say" data-t="${esc(cur)}" aria-label="Escuchar">${ic('volume')}</button></div>
-    <div class="practice-phrase">${pronResult && !pronResult.error ? colorWords(pronResult) : esc(cur)}</div>${curEs ? `<p class="muted center">${esc(curEs)}</p>` : ''}${micControls(cur, 'pron')}
+    <div class="practice-phrase">${pronResult && !pronResult.error ? colorWords(pronResult) : tapText(cur)}</div>${curEs ? `<p class="muted center">${esc(curEs)}</p>` : ''}${micControls(cur, 'pron')}
     <div id="micres">${pronResult ? pronResultHTML(pronResult) : '<p class="muted center small">Escucha, luego toca el micrófono y repite</p>'}</div>
     <form class="row gap" data-form="custom" style="margin-top:14px"><input name="phrase" placeholder="Escribe tu propia frase en inglés…" autocomplete="off" autocapitalize="off"><button class="btn ghost">Usar</button></form></div>
-    <p class="muted small">ℹ️ La app compara lo que entiende el reconocimiento de voz con la frase. Las palabras en rojo son las que debes practicar. Con <b>▶ Sesión</b> practicas 10 frases seguidas y al final ves tu resumen.</p>
+    <p class="muted small">ℹ️ La app compara lo que entiende el reconocimiento de voz con la frase. Las palabras en rojo son las que debes practicar. Con <b>▶ Sesión</b> practicas 10 frases seguidas y al final ves tu resumen. Toca cualquier palabra de la frase para ver qué significa.</p>
     ${weakN >= 3 ? `<button class="card action-card" data-act="psession" data-g="weak"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Sesión de mis errores</b><small class="muted block">${weakN} frases con las palabras que más te cuestan</small></span>${ic('play', 'sm accent')}</button>` : ''}` +
     PRON.map(c => `<div class="row between pron-head"><h3>${c.icon} ${esc(c.title)}</h3><button class="add-btn" data-act="psession" data-g="${c.id}">▶ Sesión</button></div><p class="muted small">${esc(c.tip)}</p><div class="phrase-list">${c.phrases.map(([en, es]) =>
       `<button class="phrase ${en === cur ? 'on' : ''}" data-act="pphrase" data-t="${esc(en)}"><span class="grow">${esc(en)}<small class="muted block">${esc(es)}</small></span>${S.pron[en] != null ? `<span class="score-tag">${S.pron[en]}%</span>` : ''}</button>`).join('')}</div>`).join('');
@@ -670,7 +678,7 @@ function renderPronSession() {
   const [en, es] = P.list[P.i], r = P.result, best = P.best[P.i], left = PS_TRIES - P.tries;
   view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="bar grow"><i style="width:${pct(P.i, P.list.length)}%"></i></div><span class="muted small">${P.i + 1}/${P.list.length}</span></div>
     <div class="ex"><p class="ex-prompt">${esc(P.title)} <span class="muted small">· Sesión</span></p>
-    <div class="card practice"><div class="practice-phrase">${r && !r.error ? colorWords(r) : esc(en)}</div><p class="muted center">${esc(es)}</p>
+    <div class="card practice"><div class="practice-phrase">${r && !r.error ? colorWords(r) : tapText(en)}</div><p class="muted center">${esc(es)}</p>
       ${left > 0 ? micControls(en, 'psession') : `<div class="speak-controls">${sayBtn(en, 'lg')}</div>`}
       <div id="micres">${r ? pronResultHTML(r) : '<p class="muted center small">Escucha, luego toca el micrófono y repite</p>'}</div>
       <p class="muted center small">${left > 0 ? (P.tries ? `Te queda ${left} intento. Se guarda tu mejor puntaje.` : `Tienes ${PS_TRIES} intentos.`) : 'Usaste tus 2 intentos. ¡Sigue con la próxima!'}</p></div>
@@ -706,8 +714,8 @@ function finishPronSession() {
   const tag = s => `<span class="score-tag ${s >= 70 ? 'good' : 'bad'}">${s}%</span>`;
   view().innerHTML = `<div class="summary"><div class="emoji">${avg >= 90 ? '🏆' : avg >= 70 ? '🎤' : '💪'}</div><h1>¡Sesión terminada!</h1>
     <div class="sum-stats"><div class="stat"><b>+${xp}</b><small>XP</small></div><div class="stat"><b>${done.length ? avg + '%' : '—'}</b><small>Promedio</small></div><div class="stat"><b>${done.length}/${P.list.length}</b><small>Frases</small></div></div></div>
-    <section class="card"><h2>Tus frases</h2>${P.list.map(([en, es], k) => { const b = P.best[k]; return `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><span>${esc(en)}</span><span class="muted small block">${esc(es)}</span></div>${b && !b.skipped ? tag(b.score) : '<span class="muted small">Saltada</span>'}</div>`; }).join('')}</section>
-    ${words.length ? `<section class="card"><h2>🔴 Palabras para practicar</h2><div class="word-chips">${words.map(w => { const g = gloss(w); return `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}</button>`; }).join('')}</div></section>`
+    <section class="card"><h2>Tus frases</h2>${P.list.map(([en, es], k) => { const b = P.best[k]; return `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><span>${tapText(en)}</span><span class="muted small block">${esc(es)}</span></div>${b && !b.skipped ? tag(b.score) : '<span class="muted small">Saltada</span>'}</div>`; }).join('')}</section>
+    ${words.length ? `<section class="card"><h2>🔴 Palabras para practicar</h2><p class="muted small">Toca una palabra para escucharla y ver qué significa.</p><div class="word-chips">${words.map(w => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}</button>`; }).join('')}</div></section>`
       : done.length ? '<section class="card center"><b>🌟 ¡Pronunciaste bien todas las palabras!</b></section>' : ''}
     <button class="btn primary wide" data-act="tab" data-tab="talk" data-seg2="pron">Continuar</button>`;
   P = null;
@@ -746,7 +754,7 @@ function reviewHTML() {
     ${again ? '<p class="center"><span class="retry-tag">🔁 Esta la fallaste: ¡otra vez!</span></p>' : ''}
     <button class="flash ${F.flip ? 'flipped' : ''}" data-act="flip"><div class="flash-inner">
       <div class="face"><span class="label">Inglés</span><b>${esc(c.en)}</b><span class="muted small">Toca para ver la traducción</span></div>
-      <div class="face back"><span class="label">Español</span><b>${esc(c.es)}</b><span>${esc(c.en)}</span></div>
+      <div class="face back"><span class="label">Español</span><b>${esc(c.es)}</b><span>${F.flip ? tapText(c.en) : esc(c.en)}</span></div>
     </div></button>
     <div class="row" style="justify-content:center;margin-bottom:16px">${sayBtn(c.en, 'lg')}</div>
     ${F.flip ? `<div class="rate-row"><button class="btn no" data-act="rate" data-v="0">😕 No la sabía</button><button class="btn yes" data-act="rate" data-v="1">😎 La sabía</button></div>` : '<p class="muted center small">¿Recuerdas qué significa? Piénsalo y voltea la tarjeta.</p>'}`;
@@ -770,38 +778,224 @@ function rateCard(v) {
       note: fixed ? 'Las tarjetas que fallaste volverán mañana para asegurarte de no olvidarlas.' : '¡Perfecto, ninguna fallada! 🌟' });
   } else render();
 }
-function dictionaryWords() {
-  const map = new Map();
-  allLessons().forEach(l => l.words.forEach(w => map.set(w[0], w[1])));
-  Object.values(S.cards).forEach(c => map.set(c.en, c.es));
-  return [...map.entries()];
-}
 function dictHTML() {
   const custom = Object.values(S.cards).filter(c => c.custom);
-  return `<div class="search"><input id="dictq" type="search" placeholder="Busca en inglés o español…" autocomplete="off" autocapitalize="off" value="${esc(dictQ)}"></div>
-    <div id="dictres">${dictResultsHTML()}</div>
+  return `<button class="card action-card" data-act="dict"><span class="icon-bubble">${ic('dict')}</span><span class="grow"><b>Buscar en el diccionario</b><small class="muted block">En inglés o en español · ${DICT ? DICT.words.length.toLocaleString('es-CL') : 'más de 3.000'} palabras, también sin internet</small></span>${ic('play', 'sm accent')}</button>
     <section class="card"><h2>➕ Agregar palabra</h2><form data-form="addword" class="stack"><input name="en" placeholder="Palabra en inglés" required autocapitalize="off" autocomplete="off"><input name="es" placeholder="Traducción al español" required autocomplete="off"><button class="btn primary">Agregar a mis tarjetas</button></form></section>
-    ${custom.length ? `<section class="card"><h2>📝 Mis palabras (${custom.length})</h2>${custom.map(c => `<div class="word-row">${sayBtn(c.en, 'sm')}<div class="grow"><b>${esc(c.en)}</b> <span class="muted">— ${esc(c.es)}</span></div><button class="icon-btn sm" data-act="delword" data-en="${esc(c.en)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</section>` : ''}`;
+    ${custom.length ? `<section class="card"><h2>📝 Mis palabras (${custom.length})</h2>${custom.map(c => `<div class="word-row">${sayBtn(c.en, 'sm')}<div class="grow"><b>${tapText(c.en)}</b> <span class="muted">— ${esc(c.es)}</span></div><button class="icon-btn sm" data-act="delword" data-en="${esc(c.en)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</section>` : ''}`;
 }
-function dictResultsHTML() {
-  const q = deaccent(dictQ.trim());
-  if (!q) return `<p class="muted small center">Escribe una palabra para buscarla. Puedes ver su definición en inglés y agregarla a tus tarjetas.</p>`;
-  const res = dictionaryWords().filter(([en, es]) => deaccent(en).includes(q) || deaccent(es).includes(q)).slice(0, 20);
-  const isEnglish = /^[a-z' -]+$/i.test(dictQ.trim());
-  return `<section class="card">${res.length ? res.map(([en, es]) => `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><b>${esc(en)}</b> <span class="muted">— ${esc(es)}</span></div>${S.cards[en] ? '<span class="add-btn added">✓ En tarjetas</span>' : `<button class="add-btn" data-act="addcard" data-en="${esc(en)}" data-es="${esc(es)}">+ Tarjeta</button>`}</div>`).join('') : '<p class="muted small">No está en el diccionario de la app.</p>'}
-    ${isEnglish ? `<button class="btn ghost wide" data-act="define">📖 Definición en inglés de “${esc(dictQ.trim())}”</button>` : ''}<div id="defbox"></div></section>`;
+
+/* ===== DICCIONARIO: más de 3.000 palabras sin internet, y Wiktionary como respaldo ===== */
+const POS = { s: 'sustantivo', v: 'verbo', adj: 'adjetivo', adv: 'adverbio', prep: 'preposición', pron: 'pronombre', conj: 'conjunción', det: 'determinante', interj: 'interjección', num: 'número', modal: 'verbo modal' };
+const posLabel = p => (p || '').split('/').map(x => POS[x] || x).join(' · ');
+const CONTRACTIONS = {
+  "i'm": ['I am', 'yo soy / yo estoy'], "you're": ['you are', 'tú eres / tú estás'], "he's": ['he is', 'él es / él está'], "she's": ['she is', 'ella es / ella está'],
+  "it's": ['it is', 'es / está'], "we're": ['we are', 'somos / estamos'], "they're": ['they are', 'ellos son / están'], "that's": ['that is', 'eso es'],
+  "what's": ['what is', '¿qué es? / ¿cuál es?'], "there's": ['there is', 'hay'], "here's": ['here is', 'aquí está'], "let's": ['let us', 'hagamos… / vamos a…'],
+  "i've": ['I have', 'he / tengo'], "we've": ['we have', 'hemos / tenemos'], "i'll": ['I will', 'yo (futuro): voy a…'], "you'll": ['you will', 'tú (futuro)'], "we'll": ['we will', 'nosotros (futuro)'],
+  "i'd": ['I would', 'yo (condicional): quisiera, me gustaría…'], "don't": ['do not', 'no (+ verbo)'], "doesn't": ['does not', 'no (+ verbo, con he/she/it)'], "didn't": ['did not', 'no (en pasado)'],
+  "isn't": ['is not', 'no es / no está'], "aren't": ['are not', 'no son / no están'], "wasn't": ['was not', 'no era / no estaba'], "weren't": ['were not', 'no eran / no estaban'],
+  "can't": ['cannot', 'no puedo / no puede'], "couldn't": ['could not', 'no pude / no podría'], "won't": ['will not', 'no (en futuro)'], "wouldn't": ['would not', 'no (condicional)'],
+  "shouldn't": ['should not', 'no debería'], "haven't": ['have not', 'no he / no tengo'], "hasn't": ['has not', 'no ha / no tiene']
+};
+const DICT_IX = { w: new Map(), form: new Map(), irr: new Map(), verbs: {} };
+let DICT = null, dictLoading = null, dictSearchQ = '';
+function loadDict() {
+  if (DICT) return Promise.resolve(DICT);
+  if (!dictLoading) dictLoading = fetch('dict.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(d => {
+    d.words.forEach(([w, pos, es, ex, exEs, forms]) => {
+      DICT_IX.w.set(w, { w, pos, es, ex, exEs });
+      if (forms) forms.split('|').forEach(f => { if (!DICT_IX.form.has(f)) DICT_IX.form.set(f, w); });
+    });
+    Object.entries(d.irr).forEach(([base, [past, part]]) => {
+      DICT_IX.verbs[base] = [past, part];
+      const pp = part.split('/');
+      past.split('/').forEach(f => DICT_IX.irr.set(f, { base, kind: pp.includes(f) ? 'both' : 'past' }));
+      pp.forEach(f => { if (!DICT_IX.irr.has(f)) DICT_IX.irr.set(f, { base, kind: 'part' }); });
+    });
+    return (DICT = d);
+  }).catch(e => { dictLoading = null; throw e; });
+  return dictLoading;
 }
-async function defineWord() {
-  const word = dictQ.trim().toLowerCase(), box = $('#defbox'); if (!box || !word) return;
-  box.innerHTML = '<p class="muted small center">Buscando…</p>';
+/* Palabras de las lecciones y de tus tarjetas (incluye expresiones como "wake up") */
+function appEntries() {
+  const m = new Map();
+  allWords().forEach(([en, es]) => m.set(en.toLowerCase(), { w: en.toLowerCase(), es, pos: '' }));
+  Object.values(S.cards).forEach(c => { const k = c.en.toLowerCase(); if (!m.has(k)) m.set(k, { w: k, es: c.es, pos: '' }); });
+  return m;
+}
+let SENTENCES = null;
+function appSentences() {
+  if (!SENTENCES) SENTENCES = uniqBy([...allSentences(), ...PRON.flatMap(c => c.phrases),
+    ...DIALOGS.flatMap(d => Object.values(d.nodes).flatMap(n => [n.npc, ...(n.options || []).filter(o => o.go).map(o => [o.en, o.es])]))], s => s[0]);
+  return SENTENCES;
+}
+const normWord = t => String(t).toLowerCase().replace(/[’‘]/g, "'").replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+const getEntry = (w, app) => DICT_IX.w.get(w) || app.get(w) || null;
+function stemGuess(w) {
+  const tries = [], add = (suf, rep = '') => { if (w.length > suf.length + 1 && w.endsWith(suf)) tries.push(w.slice(0, -suf.length) + rep); };
+  add("'s"); add('ies', 'y'); add('ied', 'y'); add('ier', 'y'); add('iest', 'y'); add('es'); add('s'); add('ed'); add('ed', 'e'); add('ing'); add('ing', 'e'); add('er'); add('est'); add('ly');
+  tries.slice().forEach(t => { if (/([b-df-hj-np-tv-z])\1$/.test(t)) tries.push(t.slice(0, -1)); });
+  return tries.find(t => DICT_IX.w.has(t)) || null;
+}
+function formLabel(w, h) {
+  const base = DICT_IX.w.get(h), noun = base && /(^|\/)s(\/|$)/.test(base.pos) && !/(^|\/)v(\/|$)/.test(base.pos);
+  if (noun && !/(ing|ed|er|est|ly)$/.test(w)) return `el plural de “${h}”`;
+  if (w.endsWith('ing')) return `la forma -ing de “${h}”`;
+  if (w.endsWith('ed')) return `el pasado de “${h}”`;
+  if (w.endsWith('est')) return `el superlativo de “${h}” (el más…)`;
+  if (w.endsWith('er')) return `el comparativo de “${h}” (más…)`;
+  if (w.endsWith('ly')) return `el adverbio de “${h}”`;
+  if (w.endsWith('s')) return `el plural o la forma con he/she/it de “${h}”`;
+  return `una forma de “${h}”`;
+}
+const IRR_KIND = { past: 'el pasado', part: 'el participio', both: 'el pasado y el participio' };
+function lookup(raw) {
+  const w = normWord(raw); if (!w) return null;
+  if (CONTRACTIONS[w]) { const [full, es] = CONTRACTIONS[w]; return { w, entry: { w, es, pos: '' }, base: null, note: `la forma corta de “${full}”` }; }
+  const app = appEntries(), r = { w, entry: getEntry(w, app), base: null, note: '' };
+  const ir = DICT_IX.irr.get(w);
+  if (ir && ir.base !== w) { r.base = getEntry(ir.base, app); r.note = `${IRR_KIND[ir.kind]} de “${ir.base}”`; }
+  else if (!r.entry || !DICT_IX.w.has(w)) {
+    const h = DICT_IX.form.get(w) || stemGuess(w);
+    if (h && h !== w) { r.base = getEntry(h, app); r.note = formLabel(w, h); }
+  }
+  if (!r.entry && !r.base && w.includes('-')) {
+    const parts = w.split('-').map(lookup).filter(Boolean);
+    if (parts.length) r.entry = { w, es: parts.map(p => `${p.w}: ${(p.entry || p.base).es}`).join(' · '), pos: '' };
+  }
+  return r.entry || r.base ? r : null;
+}
+/* Qué se guarda en tarjetas: la palabra tocada, o la forma base si es un plural o un -ing */
+function cardFor(r) {
+  if (r.entry) return { en: r.w, es: r.entry.es };
+  if (DICT_IX.irr.has(r.w)) return { en: r.w, es: `${r.note} (${r.base.es})` };
+  return { en: r.base.w, es: r.base.es };
+}
+function examplesFor(r) {
+  const out = [], add = s => { if (s && out.length < 2 && !out.some(o => o[0] === s[0])) out.push(s); };
+  const has = k => ([en]) => tokens(en).some(t => normWord(t) === k);
+  if (r.entry && r.entry.ex) add([r.entry.ex, r.entry.exEs]);
+  add(appSentences().find(has(r.w)));
+  if (r.base && r.base.ex) add([r.base.ex, r.base.exEs]);
+  if (r.base) add(appSentences().find(has(r.base.w)));
+  return out;
+}
+const exampleHTML = ([en, es]) => `<div class="wd-ex">${sayBtn(en, 'sm')}<div class="grow"><div>${tapText(en)}</div><div class="muted small">${esc(es)}</div></div></div>`;
+const showWord = w => w.replace(/^i(?=$|')/, 'I');
+function wordHeadHTML(w, pos) {
+  return `<div class="wd-head"><div class="grow"><div class="wd-word">${esc(showWord(w))}</div>${pos ? `<span class="label">${esc(posLabel(pos))}</span>` : ''}</div>
+    <button class="say lg" data-act="say" data-t="${esc(w)}" aria-label="Escuchar">${ic('volume')}</button><button class="round-btn" data-act="say" data-t="${esc(w)}" data-slow="1" aria-label="Lento">🐢</button></div>`;
+}
+function wordDetailHTML(r, extra = '') {
+  const main = r.entry || r.base, card = cardFor(r), exs = examplesFor(r);
+  const vb = [r.base && r.base.w, r.entry && r.entry.w].find(k => k && DICT_IX.verbs[k]);
+  return wordHeadHTML(r.w, main.pos)
+    + (r.entry ? `<div class="wd-es">${esc(r.entry.es)}</div>` : '')
+    + (r.note ? `<div class="wd-note">“${esc(r.w)}” es ${esc(r.note)}${r.base ? `: <button class="link-inline" data-act="word" data-w="${esc(r.base.w)}">${esc(r.base.w)}</button> = ${esc(r.base.es)}` : ''}</div>` : '')
+    + (vb ? `<div class="wd-forms"><span class="label">Verbo irregular</span><div><b>${esc(vb)}</b> → <b>${esc(DICT_IX.verbs[vb][0].replace('/', ' / '))}</b> → <b>${esc(DICT_IX.verbs[vb][1].replace('/', ' / '))}</b></div><small class="muted">presente → pasado → participio</small></div>` : '')
+    + (exs.length ? `<div class="wd-exs"><span class="label">Ejemplos</span>${exs.map(exampleHTML).join('')}</div>` : '')
+    + (S.cards[card.en] ? '<p class="center"><span class="add-btn added">✓ Ya está en tus tarjetas</span></p>'
+      : `<button class="btn primary wide" data-act="addcardw" data-en="${esc(card.en)}" data-es="${esc(card.es)}">+ Agregar a tarjetas</button>`)
+    + extra;
+}
+const WIKI = new Map();
+async function wikiLookup(word) {
+  if (WIKI.has(word)) return WIKI.get(word);
+  const r = await fetch(`https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word)}&prop=wikitext&format=json&origin=*&redirects=1`);
+  const d = await r.json(), t = d && d.parse && d.parse.wikitext && d.parse.wikitext['*'];
+  let res = null;
+  const en = t && (t.split(/^==\s*English\s*==\s*$/m)[1] || '').split(/^==[^=\n]+==\s*$/m)[0];
+  if (en) {
+    const trans = [...new Set([...en.matchAll(/^\*\s*Spanish:(.*)$/gm)].flatMap(m => [...m[1].matchAll(/\{\{t{1,2}\+?\|es\|([^|}]+)/g)].map(x => x[1].trim())))].slice(0, 3);
+    const lm = en.match(/\{\{(?:en-)?[a-z -]*?of\|(?:en\|)?([^|}]+)/i);
+    res = { trans, lemma: lm ? lm[1].trim().toLowerCase() : null };
+  }
+  WIKI.set(word, res);
+  return res;
+}
+
+/* ===== Hoja emergente (pop-up) para palabras y para el buscador ===== */
+const SHEET = { open: false, mode: '', word: '', fromSearch: false };
+function openSheet(html, mode) {
+  if (!SHEET.open) SHEET.fromSearch = mode === 'search';
+  SHEET.open = true; SHEET.mode = mode;
+  const s = $('#sheet');
+  s.innerHTML = `<div class="sheet-bg" data-act="sheetclose"></div><div class="sheet ${mode === 'search' ? 'tall' : ''}" role="dialog" aria-modal="true"><div id="sheetBody">${html}</div></div>`;
+  s.classList.add('open'); document.documentElement.classList.add('noscroll'); placeFab();
+}
+function setSheet(html) { const b = $('#sheetBody'); if (b) { b.innerHTML = html; b.parentElement.scrollTop = 0; } }
+function closeSheet() {
+  SHEET.open = false; SHEET.fromSearch = false; SHEET.word = '';
+  const s = $('#sheet'); s.classList.remove('open'); s.innerHTML = '';
+  document.documentElement.classList.remove('noscroll'); placeFab();
+}
+const sheetTop = () => `<div class="sheet-top">${SHEET.fromSearch ? '<button class="link-inline" data-act="dict">‹ Volver a buscar</button>' : ''}<span class="grow"></span><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div>`;
+async function openWord(raw) {
+  const w = normWord(raw); if (!w) return;
+  const still = () => SHEET.open && SHEET.mode === 'word' && SHEET.word === w;
+  if (SHEET.open) { SHEET.mode = 'word'; $('.sheet').classList.remove('tall'); } else openSheet('', 'word');
+  SHEET.word = w;
+  setSheet(sheetTop() + wordHeadHTML(w) + '<p class="muted center small">Buscando…</p>');
+  try { await loadDict(); } catch (e) {}
+  if (!still()) return;
+  const r = lookup(w);
+  if (r) return setSheet(sheetTop() + wordDetailHTML(r));
+  setSheet(sheetTop() + wordHeadHTML(w) + '<p class="muted center small">🌐 No está en el diccionario de la app. Buscando en internet…</p>');
+  let found = null;
   try {
-    const r = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
-    if (!r.ok) { box.innerHTML = '<p class="muted small">No encontré esa palabra en el diccionario de inglés.</p>'; return; }
-    const data = await r.json(), e = data[0];
-    const phon = e.phonetic || (e.phonetics.find(p => p.text) || {}).text || '';
-    box.innerHTML = `<div style="margin-top:12px"><b style="font-size:20px">${esc(e.word)}</b> <span class="muted">${esc(phon)}</span> ${sayBtn(e.word, 'sm')}
-      ${e.meanings.slice(0, 3).map(m => `<div class="def-pos">${esc(m.partOfSpeech)}</div>${m.definitions.slice(0, 2).map(d => `<div class="def-item">• ${esc(d.definition)}${d.example ? `<div class="def-ex">“${esc(d.example)}”</div>` : ''}</div>`).join('')}`).join('')}</div>`;
-  } catch (err) { box.innerHTML = '<p class="muted small">Necesitas internet para ver definiciones.</p>'; }
+    const wk = await wikiLookup(w);
+    if (wk && wk.lemma && !wk.trans.length) {
+      const lr = lookup(wk.lemma), wk2 = lr ? null : await wikiLookup(wk.lemma);
+      const base = lr ? (lr.entry || lr.base) : wk2 && wk2.trans.length ? { w: wk.lemma, es: wk2.trans.join(', '), pos: '' } : null;
+      if (base) found = { w, entry: null, base, note: `una forma de “${wk.lemma}”` };
+    } else if (wk && wk.trans.length) found = { w, entry: { w, es: wk.trans.join(', '), pos: '' }, base: null, note: '' };
+  } catch (e) {}
+  if (!still()) return;
+  if (found) return setSheet(sheetTop() + wordDetailHTML(found, '<p class="muted small center">🌐 Traducción de Wiktionary (internet).</p>'));
+  setSheet(sheetTop() + wordHeadHTML(w) + `<p class="muted center">${navigator.onLine === false ? 'No está en el diccionario de la app. Conéctate a internet para buscarla.' : 'No encontré esta palabra.'}</p>
+    <p class="muted small center">Si sabes qué significa, agrégala con tu traducción en Tarjetas › Diccionario.</p>`);
+}
+function openSearch() {
+  const html = `<div class="sheet-top"><input id="dq" type="search" placeholder="Busca en inglés o en español…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" value="${esc(dictSearchQ)}"><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div><div id="dqres"><p class="muted center small">Cargando el diccionario…</p></div>`;
+  if (SHEET.open) { SHEET.mode = 'search'; $('.sheet').classList.add('tall'); setSheet(html); } else openSheet(html, 'search');
+  SHEET.word = '';
+  loadDict().then(renderSearch, renderSearch);
+  setTimeout(() => { const i = $('#dq'); if (i) i.focus(); }, 60);
+}
+function searchWords(q) {
+  const n = deaccent(q.trim()); if (!n || !DICT) return [];
+  const app = appEntries(), pool = [...DICT_IX.w.values(), ...[...app.values()].filter(e => !DICT_IX.w.has(e.w))];
+  const out = [], seen = new Set(), push = (e, note) => { if (e && !seen.has(e.w)) { seen.add(e.w); out.push({ e, note }); } };
+  const r = lookup(n); if (r) { push(r.entry); push(r.base, `“${r.w}” viene de aquí`); }
+  pool.filter(e => e.w.startsWith(n)).sort((a, b) => a.w.length - b.w.length).slice(0, 12).forEach(e => push(e));
+  const meanings = e => deaccent(e.es).split(/[,;/()·]+/).map(x => x.trim());
+  pool.filter(e => meanings(e).includes(n)).forEach(e => push(e));
+  pool.filter(e => meanings(e).some(m => m.startsWith(n))).slice(0, 15).forEach(e => push(e));
+  if (n.length > 3) pool.filter(e => deaccent(e.es).includes(n)).slice(0, 10).forEach(e => push(e));
+  return out.slice(0, 25);
+}
+function renderSearch() {
+  const box = $('#dqres'); if (!box) return;
+  const q = dictSearchQ.trim(), n = deaccent(q);
+  if (!q) { box.innerHTML = `<p class="muted center small">Escribe una palabra en inglés o en español.${DICT ? ` Hay ${DICT.words.length.toLocaleString('es-CL')} palabras disponibles, también sin internet.` : ''}</p>`; return; }
+  const res = searchWords(q), english = /^[a-z' -]+$/i.test(q);
+  const sents = n.length < 2 ? [] : appSentences().filter(([en, es]) => tokens(en).some(t => normWord(t) === n) || (n.length > 3 && (deaccent(en).includes(n) || deaccent(es).includes(n)))).slice(0, 4);
+  box.innerHTML = (res.length ? `<div class="dq-list">${res.map(({ e, note }) => `<button class="dq-row" data-act="word" data-w="${esc(e.w)}"><b>${esc(e.w)}</b><span class="muted grow">${esc(note ? `${e.es} · ${note}` : e.es)}</span>${S.cards[e.w] ? '<span class="add-btn added">✓</span>' : ''}</button>`).join('')}</div>` : '')
+    + (sents.length ? `<span class="label">En tus lecciones, frases y diálogos</span>${sents.map(exampleHTML).join('')}` : '')
+    + (!res.length && english ? `<button class="btn ghost wide" data-act="word" data-w="${esc(q)}">🌐 Buscar “${esc(q)}” en internet</button>` : '')
+    + (!res.length && !sents.length && !english ? '<p class="muted center small">No encontré esa palabra. Prueba con otra forma, por ejemplo el infinitivo ("comer").</p>' : '');
+}
+
+/* ===== Botón flotante: se ubica sobre la barra inferior o sobre "Comprobar/Continuar" ===== */
+let typing = false;
+function placeFab() {
+  const fab = $('#dictFab'); if (!fab) return;
+  const foot = $('#view .ex-foot');
+  if (foot) fab.style.bottom = `${Math.round(foot.getBoundingClientRect().height) + 12}px`;
+  else if (!document.body.classList.contains('focus')) fab.style.bottom = `calc(env(safe-area-inset-bottom) + ${Math.round($('#tabs').getBoundingClientRect().height) + 22}px)`;
+  else fab.style.bottom = 'calc(env(safe-area-inset-bottom) + 16px)';
+  fab.classList.toggle('hide', SHEET.open || typing);
 }
 
 /* ===== ESTADÍSTICAS ===== */
@@ -852,10 +1046,10 @@ function renderStats() {
     ${types.length ? types.map(([k, label]) => { const t = S.types[k], p = pct(t.ok, t.ok + t.fail); return `<div class="type-row"><div class="row between"><span>${label}</span><span class="muted small">${p}% · ${t.ok + t.fail} intentos</span></div><div class="bar thin ${p < 60 ? 'low' : ''}"><i style="width:${p}%"></i></div></div>`; }).join('') : '<p class="muted small">Completa una lección para ver tus estadísticas.</p>'}
   </section>
   <section class="card"><h2>🔴 Lo que más te cuesta</h2>
-    ${weak.length ? weak.map(i => `<div class="word-row">${sayBtn(i.en, 'sm')}<div class="grow"><b>${esc(i.en)}</b><span class="muted small block">${esc(i.es)}</span></div><span class="score-tag bad">✗ ${i.fail}</span><span class="score-tag good">✓ ${i.ok}</span></div>`).join('')
+    ${weak.length ? weak.map(i => `<div class="word-row">${sayBtn(i.en, 'sm')}<div class="grow"><b>${tapText(i.en)}</b><span class="muted small block">${esc(i.es)}</span></div><span class="score-tag bad">✗ ${i.fail}</span><span class="score-tag good">✓ ${i.ok}</span></div>`).join('')
       + `<button class="btn primary wide" data-act="lesson" data-id="auto">🎯 Practicar mis errores</button>` : '<p class="muted small">¡Aún no hay errores registrados! 🌟</p>'}
   </section>
-  ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
+  ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
   ${ps.length ? `<section class="card"><h2>🎙️ Sesiones de pronunciación</h2><p class="muted small">${ps.length} ${ps.length === 1 ? 'sesión' : 'sesiones'} · promedio ${pct(ps.reduce((a, s) => a + s.avg, 0), ps.length * 100)}%</p>${ps.slice(-4).reverse().map(s => `<div class="word-row"><div class="grow"><span>${esc(s.group)}</span><span class="muted small block">${new Date(s.t).toLocaleDateString('es-CL')} · ${s.done}/${s.n} frases</span></div><span class="score-tag ${s.avg >= 70 ? 'good' : 'bad'}">${s.avg}%</span></div>`).join('')}</section>` : ''}
   ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id), es = optionEs(d, x.en); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span>${es ? `<span class="muted small block">${esc(es)}</span>` : ''}<span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
   <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Exporta tu progreso, guárdalo en tu PC en <b>APP 2.0\\progreso</b> y dile a Claude "revisa mi progreso".</p></div></section>
@@ -932,7 +1126,8 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.1 · tu app de inglés, gratis para siempre 💜</p>`;
+  <p class="muted small center">Fluenta 2.2 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
 /* ===== Acciones (botones) ===== */
@@ -989,8 +1184,15 @@ const ACTIONS = {
   startrev: el => startReview(!!el.dataset.all),
   flip: () => { F.flip = !F.flip; render(); if (F.flip) speak(S.cards[F.queue[F.i]].en); },
   rate: el => rateCard(el.dataset.v === '1'),
-  addcard: el => { S.cards[el.dataset.en] = { en: el.dataset.en, es: el.dataset.es, box: 1, due: 0 }; save(); toast('🃏 Agregada a tus tarjetas'); $('#dictres').innerHTML = dictResultsHTML(); },
-  define: () => defineWord(),
+  word: el => openWord(el.dataset.w),
+  dict: () => openSearch(),
+  sheetclose: () => closeSheet(),
+  addcardw: el => {
+    const { en, es } = el.dataset; if (S.cards[en]) return;
+    S.cards[en] = { en, es, box: 1, due: 0 }; save(); toast('🃏 Agregada a tus tarjetas');
+    el.outerHTML = '<p class="center"><span class="add-btn added">✓ Agregada a tus tarjetas</span></p>';
+    if (tab === 'cards' && !F && !SHEET.open) render();
+  },
   delword: el => { if (!confirm(`¿Eliminar "${el.dataset.en}"?`)) return; delete S.cards[el.dataset.en]; save(); render(); },
   delpack: el => { if (!confirm('¿Eliminar este refuerzo?')) return; S.packs = S.packs.filter(p => p.id !== el.dataset.id); save(); render(); },
   export: () => exportData(),
@@ -1018,7 +1220,7 @@ document.addEventListener('submit', e => {
 });
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.id === 'dictq') { dictQ = t.value; $('#dictres').innerHTML = dictResultsHTML(); }
+  if (t.id === 'dq') { dictSearchQ = t.value; renderSearch(); }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
 });
@@ -1030,11 +1232,21 @@ document.addEventListener('change', e => {
   }
 });
 
+/* ===== Diccionario flotante: botón, hoja emergente y su posición ===== */
+document.body.insertAdjacentHTML('beforeend', `<button id="dictFab" class="dict-fab" data-act="dict" aria-label="Diccionario">${ic('dict')}</button><div id="sheet" class="sheet-wrap"></div>`);
+new MutationObserver(placeFab).observe($('#view'), { childList: true });
+window.addEventListener('resize', placeFab);
+const isTyping = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'submit'].includes(el.type)));
+document.addEventListener('focusin', e => { typing = isTyping(e.target) && !e.target.closest('#sheet'); placeFab(); });
+document.addEventListener('focusout', () => setTimeout(() => { typing = isTyping(document.activeElement) && !document.activeElement.closest('#sheet'); placeFab(); }, 50));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && SHEET.open) closeSheet(); });
+
 /* ===== Inicio de la app ===== */
 applyTheme();
 renderNav();
 render();
 checkAch();
+setTimeout(() => loadDict().catch(() => {}), 1200);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
