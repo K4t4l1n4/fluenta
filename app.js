@@ -47,6 +47,7 @@ const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
   rate: 0.9, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
+  resume: null, cardDir: 'en', cardWrite: false, favTip: false,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
   writing: { texts: [], errs: {} }
 };
@@ -71,7 +72,7 @@ function addXp(n) {
 }
 
 /* ===== Historial de aciertos y errores ===== */
-const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)' };
+const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)', dictation: 'Escuchar y escribir', fixwrite: 'Corregir mis errores de escritura' };
 function trackType(type, ok) {
   const t = S.types[type] || (S.types[type] = { ok: 0, fail: 0 }); ok ? t.ok++ : t.fail++;
   const d = today(); ok ? d.ok++ : d.fail++;
@@ -152,7 +153,8 @@ function gloss(w) {
 }
 const dialogEnds = d => Object.keys(d.nodes).filter(k => d.nodes[k].end);
 function autoLesson() {
-  const weak = weakItems(14); if (!weak.length) return null;
+  const weak = weakItems(14), fixes = writingDrills(4);
+  if (!weak.length && !fixes.length) return null;
   const words = weak.filter(i => i.kind === 'w').slice(0, 6).map(i => [i.en, i.es]);
   const sentences = weak.filter(i => i.kind === 's').slice(0, 4).map(i => [i.en, i.es]);
   if (sentences.length < 2 && words.length) {
@@ -160,9 +162,9 @@ function autoLesson() {
     const related = shuffle(allSentences()).filter(s => keys.some(k => (' ' + s[0].toLowerCase().replace(/[.,!?]/g, '') + ' ').includes(' ' + k + ' ')) && !sentences.some(x => x[0] === s[0]));
     sentences.push(...related.slice(0, 2 - sentences.length));
   }
-  return { id: 'auto', title: 'Mis errores', icon: '🎯', focus: true, count: weak.length,
-    tip: 'Esta lección se armó sola con las palabras y frases que más te han costado. Cada palabra aparece de varias formas para que la fijes bien.',
-    words, sentences };
+  return { id: 'auto', title: 'Mis errores', icon: '🎯', focus: true, count: weak.length + fixes.length,
+    tip: 'Esta lección se armó sola con las palabras y frases que más te han costado, y con tus errores al escribir. Cada palabra aparece de varias formas para que la fijes bien.',
+    words, sentences, fixes };
 }
 function findLesson(id) { if (id === 'auto') return autoLesson(); return allLessons().find(l => l.id === id) || S.packs.find(p => p.id === id); }
 
@@ -361,7 +363,8 @@ function go(t) {
 function render() {
   rollover();
   document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab })[tab]();
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar })[tab]();
+  if (tab === 'home') fillWod();
 }
 function renderNav() {
   $('#tabs').innerHTML = `
@@ -453,10 +456,11 @@ if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => S
 
 /* ===== INICIO ===== */
 function greeting() { const h = new Date().getHours(); return h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches'; }
+/* Se usa desde Safari (en el ícono de inicio el micrófono no funciona), así que se sugiere Favoritos */
 function installTip() {
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  if (!ios || navigator.standalone) return '';
-  return `<div class="card tip"><b>📲 Instala la app</b><p class="muted small">En Safari toca Compartir <b>⬆️</b> y luego <b>"Agregar a pantalla de inicio"</b>.</p></div>`;
+  if (!ios || navigator.standalone || S.favTip) return '';
+  return `<div class="card tip"><b>⭐ Guarda Fluenta en Favoritos</b><p class="muted small">En Safari toca el libro <b>📖</b> (o Compartir <b>⬆️</b>) y elige <b>"Agregar a Favoritos"</b>. Así la abres con un toque y el micrófono funciona.</p><button class="btn ghost wide" data-act="favdone">Listo, ya la guardé</button></div>`;
 }
 function sectionStats() {
   const ls = allLessons(), phrases = allPhrases(), cards = Object.values(S.cards);
@@ -467,11 +471,15 @@ function sectionStats() {
     { tab: 'cards', icon: 'cards', title: 'Tarjetas', p: pct(cards.filter(c => c.box >= 4).length, cards.length) }
   ];
 }
+function resumeCard() {
+  const r = S.resume && savedResume(S.resume.id);
+  return r ? `<button class="card action-card resume-card" data-act="lesson" data-id="${esc(r.id)}"><span class="icon-bubble">${esc(r.icon || '📘')}</span><span class="grow"><b>Continuar donde quedaste</b><small class="muted block">${esc(r.title || 'Lección')} · ejercicio ${r.i + 1} de ${r.queue.length}</small></span>${ic('play', 'sm accent')}</button>` : '';
+}
 function renderHome() {
   const lv = levelInfo(), st = currentStreak(), goalPct = Math.min(100, pct(S.dailyXp, S.goal));
   const nx = allLessons().find(l => !S.done[l.id]);
   const table = leagueTable(), pos = table.findIndex(r => r.you);
-  const weak = weakItems(20).length;
+  const weak = weakItems(20).length + writingDrills(4).length;
   const needBackup = S.xp > 0 && Date.now() - (S.lastExport || 0) > 7 * 864e5;
   return `
   <header class="home-top"><div><p class="muted">${greeting()}${S.name ? ', ' + esc(S.name) : ''} 👋</p><p class="small muted">Nivel ${lv.L} · Liga ${leagueName()}</p></div>
@@ -485,6 +493,8 @@ function renderHome() {
     ${nx ? `<button class="hero-btn" data-act="lesson" data-id="${nx.id}"><span class="hero-btn-icon">${nx.icon}</span><span class="grow"><small>${Object.keys(S.done).length ? 'Continuar' : 'Empezar'}</small><b>${esc(nx.title)}</b></span>${ic('play', 'sm')}</button>`
       : `<p class="hero-sub">🎓 ¡Completaste todas las lecciones!</p>`}
   </section>
+  ${resumeCard()}
+  <div id="wod"></div>
   <div class="row between section-title"><h2>Tus secciones</h2></div>
   <div class="grid2">${sectionStats().map(s => `
     <button class="sec-card" data-act="tab" data-tab="${s.tab}" ${s.seg ? `data-seg2="${s.seg}"` : ''}>
@@ -513,12 +523,46 @@ function renderLessons() {
     ${auto ? lessonRow(auto, true, `<span class="muted small">${auto.count} ${auto.count === 1 ? 'palabra o frase' : 'palabras y frases'} para reforzar</span>`) : ''}
     ${S.packs.map(p => `<div class="pack-row">${lessonRow(p, true, `<span class="muted small">${esc(p.note || 'Refuerzo preparado por Claude')}</span>`)}<button class="icon-btn sm" data-act="delpack" data-id="${esc(p.id)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}
   </div></section>` : '';
-  return topBar('Lecciones', `<div class="pill">📚 ${allLessons().filter(l => S.done[l.id]).length}/${allLessons().length}</div>`) + refuerzo +
+  return topBar('Lecciones', `<div class="pill">📚 ${allLessons().filter(l => S.done[l.id]).length}/${allLessons().length}</div>`) + resumeCard()
+    + `<button class="card action-card" data-act="tab" data-tab="grammar"><span class="icon-bubble">📖</span><span class="grow"><b>Gramática</b><small class="muted block">Todos los tips de las lecciones en un solo lugar</small></span>${ic('play', 'sm accent')}</button>`
+    + levelChips() + refuerzo +
     LESSONS.map(u => {
       const done = u.lessons.filter(l => S.done[l.id]).length;
-      return `<section class="unit"><div class="unit-head"><span class="badge">${u.level}</span><h2 class="grow">${esc(u.unit)}</h2><span class="muted small">${done}/${u.lessons.length}</span></div>
+      return `<section class="unit" data-level="${u.level}"><div class="unit-head"><span class="badge">${u.level}</span><h2 class="grow">${esc(u.unit)}</h2><span class="muted small">${done}/${u.lessons.length}</span></div>
       <div class="path">${u.lessons.map(l => lessonRow(l, lessonUnlocked(l.id))).join('')}</div></section>`;
     }).join('');
+}
+/* Saltar a un nivel (A1, A2, B1…) en la lista de lecciones */
+function levelChips() {
+  const levels = [...new Set(LESSONS.map(u => u.level))];
+  return levels.length > 2 ? `<div class="chips">${levels.map(l => `<button class="lvl-chip" data-act="jumplevel" data-v="${l}">${l}</button>`).join('')}</div>` : '';
+}
+/* Tips: lo que está entre comillas es inglés y se puede tocar */
+const tipHTML = t => String(t || '').split(/("[^"]+")/).map((p, i) => i % 2 ? `“${tapText(p.slice(1, -1))}”` : esc(p)).join('');
+let grammarLevel = 'all';
+function renderGrammar() {
+  const levels = [...new Set(LESSONS.map(u => u.level))];
+  return topBar('Gramática', `<button class="icon-btn" data-act="tab" data-tab="lessons" aria-label="Cerrar">${ic('x')}</button>`)
+    + `<p class="muted small">Todos los tips de las lecciones. Toca las palabras en inglés para ver qué significan.</p>
+    <div class="chips">${['all', ...levels].map(l => `<button class="lvl-chip ${grammarLevel === l ? 'on' : ''}" data-act="glevel" data-v="${l}">${l === 'all' ? 'Todos' : l}</button>`).join('')}</div>`
+    + LESSONS.filter(u => grammarLevel === 'all' || u.level === grammarLevel).map(u => `<section class="unit"><div class="unit-head"><span class="badge">${u.level}</span><h2 class="grow">${esc(u.unit)}</h2></div>
+      ${u.lessons.map(l => `<div class="card tip-card gram"><span class="label">${l.icon} ${esc(l.title)}</span><p>${tipHTML(l.tip)}</p></div>`).join('')}</section>`).join('');
+}
+/* Palabra del día: cambia cada día, sale del diccionario */
+function wordOfDay() {
+  if (!DICT) return null;
+  const pool = DICT.words.filter(r => r[0].length >= 4 && /^[a-z]+$/.test(r[0]) && !/^(det|pron|prep|conj|num|interj|modal)/.test(r[1]));
+  const [w, pos, es, ex, exEs] = pool[hash(dayStr()) % pool.length];
+  return { w, pos, es, ex, exEs };
+}
+function fillWod() {
+  const box = $('#wod'); if (!box) return;
+  if (!DICT) { loadDict().then(fillWod).catch(() => {}); return; }
+  const d = wordOfDay(); if (!d) return;
+  box.innerHTML = `<section class="card wod"><div class="row between"><span class="label">✨ Palabra del día</span><span class="muted small">${esc(posLabel(d.pos))}</span></div>
+    <div class="row gap-s"><b class="wod-word grow">${esc(d.w)}</b>${sayBtn(d.w)}</div><div class="wd-es">${esc(d.es)}</div>
+    ${d.ex ? `<div class="wd-ex">${sayBtn(d.ex, 'sm')}<div class="grow"><div>${tapText(d.ex)}</div><div class="muted small">${esc(d.exEs)}</div></div></div>` : ''}
+    <button class="btn ghost wide" data-act="word" data-w="${esc(d.w)}">Ver más y agregar a tarjetas</button></section>`;
 }
 function uniqBy(arr, f) { const s = new Set(); return arr.filter(x => { const k = f(x); if (s.has(k)) return false; s.add(k); return true; }); }
 function genExercises(les) {
@@ -532,6 +576,7 @@ function genExercises(les) {
   const mkListen = w => ({ type: 'listen', track: 'listen', prompt: 'Escucha y elige lo que oíste', say: w[0], answer: w[0], options: shuffle([w[0], ...others(w[0], 0)]), en: w[0], es: w[1] });
   const mkOrder = s => ({ type: 'order', track: 'order', prompt: 'Traduce ordenando las palabras', big: s[1], say: s[0], answer: s[0], tokens: shuffle(tokens(s[0])), en: s[0], es: s[1] });
   const mkSpeak = s => ({ type: 'speak', track: 'speak', prompt: 'Lee en voz alta', big: s[0], sub: s[1], say: s[0], answer: s[0], en: s[0], es: s[1] });
+  const mkWrite = w => ({ type: 'write', track: 'dictation', prompt: 'Escucha y escribe en inglés', say: w[0], answer: w[0], en: w[0], es: w[1] });
   const mkFill = s => {
     const tk = tokens(s[0]);
     const cand = tk.map((t, i) => i).filter(i => clean(tk[i]).length > 2);
@@ -550,14 +595,47 @@ function genExercises(les) {
     sentences.forEach((s, i) => ex.push(i % 2 ? mkFill(s) : mkOrder(s)));
     if (sentences.length) ex.push(mkSpeak(sentences[0]));
     else if (words.length) ex.push(mkSpeak(words[0]));
+    (les.fixes || []).forEach(f => ex.push(mkFix(f)));   /* tus errores de escritura */
   } else {
-    /* 20 ejercicios, de más fácil a más difícil: reconocer → producir → frases completas */
-    const recognize = [...words.map(mkMeaning), ...shuffle(words).slice(0, 3).map(mkListen)];           /* 6 + 3 */
-    const produce = [...shuffle(words).slice(0, 4).map(mkTranslate), ...shuffle(sentences).slice(0, 2).map(mkFill)];   /* 4 + 2 */
-    const build = [...sentences.map(mkOrder), ...(sentences.length ? [mkSpeak(pick(sentences))] : [])];  /* 4 + 1 */
+    /* 20 ejercicios, de más fácil a más difícil: reconocer → producir → frases completas.
+       take() elige primero las palabras y frases menos usadas, para que salgan todas. */
+    const uw = new Map(), us = new Map();
+    const take = (list, used, n) => shuffle(list).sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0)).slice(0, Math.min(n, list.length)).map(x => (used.set(x, (used.get(x) || 0) + 1), x));
+    const tw = n => take(words, uw, n), ts = n => take(sentences, us, n);
+    const recognize = [...tw(6).map(mkMeaning), ...tw(3).map(mkListen)];                          /* 6 + 3 */
+    const produce = [...tw(3).map(mkTranslate), ...tw(2).map(mkWrite), ...ts(2).map(mkFill)];     /* 3 + 2 + 2 */
+    const build = [...ts(3).map(mkOrder), ...ts(1).map(mkSpeak)];                                  /* 3 + 1 */
     return noRepeats([recognize, produce, build].flatMap(shuffle));
   }
   return shuffle(ex);
+}
+/* Respuestas escritas: sin mayúsculas, tildes ni signos; se acepta 1 letra de diferencia en palabras largas */
+const normAns = s => deaccent(String(s || '')).replace(/[’‘]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
+function sameAnswer(typed, right) {
+  const a = normAns(typed), b = normAns(right);
+  if (!a) return { ok: false };
+  if (a === b) return { ok: true, close: false };
+  return { ok: b.length >= 5 && lev(a, b) <= 1, close: true };
+}
+/* Tus errores de escritura más frecuentes, para practicarlos en "Mis errores" */
+function writingDrills(n = 4) {
+  const errs = Object.entries((S.writing && S.writing.errs) || {}).map(([key, e]) => ({ key, ...e }))
+    .filter(e => e.wrong && e.right && e.wrong.toLowerCase() !== e.right.toLowerCase() && e.n - (e.ok || 0) * 0.5 > 0);
+  return errs.sort((a, b) => (b.n - (b.ok || 0) * 0.5) - (a.n - (a.ok || 0) * 0.5) || b.last - a.last).slice(0, n);
+}
+function mkFix(e) {
+  /* Busca la frase donde cometiste el error y lo convierte en "completa con la forma correcta" */
+  const texts = ((S.writing && S.writing.texts) || []).slice().reverse();
+  const src = texts.find(t => t.text.toLowerCase().includes(e.wrong.toLowerCase()));
+  const sentence = src ? (src.text.match(/[^.!?\n]+[.!?]?/g) || [src.text]).find(s => s.toLowerCase().includes(e.wrong.toLowerCase())).trim() : '';
+  const at = sentence.toLowerCase().indexOf(e.wrong.toLowerCase());
+  const before = at >= 0 ? sentence.slice(0, at) : '', after = at >= 0 ? sentence.slice(at + e.wrong.length) : '';
+  /* Tercera opción creíble: otra forma del mismo verbo (went → goes, likes → liking) */
+  const r = e.right, base = DICT && /^[a-z]+$/i.test(r) ? baseOfForm(r.toLowerCase()) || (verbBase(r.toLowerCase()) ? r.toLowerCase() : null) : null;
+  const variants = [base, base && thirdPerson(base), base && base.replace(/e$/, '') + 'ing', r.endsWith('s') ? r.slice(0, -1) : null];
+  const third = variants.find(v => v && v.toLowerCase() !== r.toLowerCase() && v.toLowerCase() !== e.wrong.toLowerCase());
+  return { type: 'fill', track: 'fixwrite', fixKey: e.key, prompt: 'Corrige tu error', hint: 'Esta frase la escribiste tú. Elige la forma correcta.',
+    before: before.trim(), after: after, say: (before + r + after).trim() || r, answer: r, options: shuffle([r, e.wrong, third].filter(Boolean)), en: r, es: e.es, explain: e.es };
 }
 /* Que la misma palabra o frase no salga dos veces seguidas */
 function noRepeats(a) {
@@ -574,13 +652,25 @@ function noRepeats(a) {
   }
   return a;
 }
-function startLesson(id) {
+/* Lección a medias: se guarda después de cada ejercicio para poder continuar después */
+function savedResume(id) {
+  const r = S.resume;
+  return r && r.id === id && Array.isArray(r.queue) && r.i > 0 && r.i < r.queue.length && Date.now() - r.t < 14 * 864e5 ? r : null;
+}
+function saveResume() {
+  if (!L || L.intro) return;
+  const i = L.answered ? L.i + 1 : L.i;
+  S.resume = i > 0 && i < L.queue.length ? { id: L.les.id, title: L.les.title, icon: L.les.icon, queue: L.queue, i, first: L.first, total: L.total, t: Date.now() } : null;
+  save();
+}
+function startLesson(id, fresh) {
   const les = findLesson(id);
   if (!les) { toast('Aún no tienes errores para reforzar. ¡Sigue practicando!'); return; }
-  const queue = genExercises(les);
+  const r = fresh ? null : savedResume(id);
+  const queue = r ? r.queue : genExercises(les);
   if (!queue.length) { toast('Esta lección no tiene ejercicios.'); return; }
-  L = { les, queue, i: 0, first: 0, sel: null, built: [], answered: false, ok: null, result: null, intro: true, tracked: false };
-  L.total = L.queue.length;
+  L = { les, queue, i: 0, first: r ? r.first : 0, sel: null, built: [], typed: '', answered: false, ok: null, result: null, intro: true, tracked: false, resumeAt: r ? r.i : 0 };
+  L.total = r ? r.total : L.queue.length;
   document.body.classList.add('focus'); window.scrollTo(0, 0);
   renderLesson();
 }
@@ -594,10 +684,11 @@ function renderIntro() {
   const l = L.les;
   view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="grow"></div></div>
     <div class="intro"><div class="intro-icon">${l.icon}</div><h1>${esc(l.title)}</h1>
-      ${l.tip ? `<div class="card tip-card"><span class="label">💡 Tip</span><p>${esc(l.tip)}</p></div>` : ''}
+      ${l.tip ? `<div class="card tip-card"><span class="label">💡 Tip</span><p>${tipHTML(l.tip)}</p></div>` : ''}
       ${l.words.length ? `<p class="label left">Palabras de esta lección</p><div class="word-chips">${l.words.map(w => `<button class="word-chip" data-act="say" data-t="${esc(w[0])}"><b>${esc(w[0])}</b><small>${esc(w[1])}</small></button>`).join('')}</div>` : ''}
     </div>
-    <footer class="ex-foot"><button class="btn primary wide" data-act="begin">Empezar · ${L.total} ejercicios</button></footer>`;
+    <footer class="ex-foot">${L.resumeAt ? `<button class="btn primary wide" data-act="begin">▶ Continuar · ejercicio ${L.resumeAt + 1} de ${L.queue.length}</button><button class="btn ghost wide" data-act="restart">Empezar de nuevo</button>`
+      : `<button class="btn primary wide" data-act="begin">Empezar · ${L.total} ejercicios</button>`}</footer>`;
 }
 function renderLesson() {
   if (L.intro) return renderIntro();
@@ -608,6 +699,10 @@ function renderLesson() {
     body += `<div class="ex-big">${L.answered && ex.big === ex.say ? tapText(ex.big) : esc(ex.big)}${ex.big === ex.say ? ' ' + sayBtn(ex.say) : ''}</div>${optionsHTML(ex)}`;
   } else if (ex.type === 'listen') {
     body += `<div class="listen-wrap"><button class="speaker-big" data-act="say" data-t="${esc(ex.say)}" aria-label="Escuchar">${ic('volume')}</button><button class="round-btn" data-act="say" data-t="${esc(ex.say)}" data-slow="1" aria-label="Lento">🐢</button></div>${optionsHTML(ex)}`;
+  } else if (ex.type === 'write') {
+    body += `<div class="listen-wrap"><button class="speaker-big" data-act="say" data-t="${esc(ex.say)}" aria-label="Escuchar">${ic('volume')}</button><button class="round-btn" data-act="say" data-t="${esc(ex.say)}" data-slow="1" aria-label="Lento">🐢</button></div>
+      <form data-form="dictation"><input id="dictInput" class="dict-input ${L.answered ? (L.ok ? 'right' : 'wrong') : ''}" placeholder="Escribe lo que escuchas…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value="${esc(L.typed)}" ${L.answered ? 'disabled' : ''}></form>
+      ${L.answered && L.ok && L.close ? `<p class="muted small">Casi perfecto: se escribe <b>${esc(ex.answer)}</b>.</p>` : ''}`;
   } else if (ex.type === 'fill') {
     body += `<p class="muted">${esc(ex.hint)}</p><div class="ex-sentence">${tapText(ex.before)} <span class="blank">${L.sel != null ? esc(ex.options[L.sel]) : '&nbsp;'}</span>${tapText(ex.after)}</div>${optionsHTML(ex)}`;
   } else if (ex.type === 'order') {
@@ -620,7 +715,7 @@ function renderLesson() {
       <div id="micres">${L.result ? pronResultHTML(L.result) : '<p class="muted center small">Escucha, luego toca el micrófono y lee la frase</p>'}</div></div>
       ${!L.answered ? '<button class="link" data-act="speakskip">No puedo hablar ahora</button>' : ''}`;
   }
-  const canCheck = L.answered || (ex.type === 'order' ? L.built.length > 0 : L.sel != null);
+  const canCheck = L.answered || (ex.type === 'order' ? L.built.length > 0 : ex.type === 'write' ? !!L.typed.trim() : L.sel != null);
   let foot = '';
   if (L.answered) {
     const title = L.skipped ? 'Sin problema 👌' : L.ok ? pick(['¡Correcto! 🎉', '¡Excelente! ⭐', '¡Muy bien! 💪', '¡Perfecto! 🙌']) : 'Casi… 😅';
@@ -628,7 +723,8 @@ function renderLesson() {
     const bodyTxt = L.skipped ? 'La practicarás en otra ocasión.'
       : L.ok ? (sentence ? tapText(ex.say) : ex.type === 'speak' ? '' : pair)
       : `Respuesta correcta: ${sentence ? `<b>${tapText(ex.say)}</b>` : pair}<br><small>La repetirás al final de la lección.</small>`;
-    foot = `<div class="fb-title">${title}</div>${bodyTxt ? `<div class="fb-body">${bodyTxt}</div>` : ''}`;
+    const explain = ex.explain ? `<div class="fb-body small">💡 ${esc(ex.explain)}</div>` : '';
+    foot = `<div class="fb-title">${title}</div>${bodyTxt ? `<div class="fb-body">${bodyTxt}</div>` : ''}${explain}`;
   }
   const showBtn = ex.type !== 'speak' || L.answered;
   view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="bar grow"><i style="width:${p}%"></i></div><span class="muted small">${L.i + 1}/${L.queue.length}</span></div>
@@ -639,21 +735,34 @@ function evaluateLesson() {
   const ex = L.queue[L.i];
   let ok;
   if (ex.type === 'order') ok = L.built.map(i => clean(ex.tokens[i])).join(' ') === tokens(ex.answer).map(clean).join(' ');
+  else if (ex.type === 'write') { const r = sameAnswer(L.typed, ex.answer); ok = r.ok; L.close = r.close; }
   else ok = ex.options[L.sel] === ex.answer;
   L.answered = true; L.ok = ok;
-  track(ex.track, ex.en, ex.es, ok);
-  if (ok) { if (!ex.retry) L.first++; sfx('ok'); if (ex.type === 'order' || ex.type === 'fill') speakAfter(ex.say); }
+  if (ex.fixKey) {   /* error de escritura: se descuenta cuando lo corriges */
+    const it = S.writing && S.writing.errs[ex.fixKey];
+    if (it) { if (ok) it.ok = (it.ok || 0) + 1; else it.n++; }
+    trackType('fixwrite', ok); save();
+  } else track(ex.track, ex.en, ex.es, ok);
+  if (ok) { if (!ex.retry) L.first++; sfx('ok'); if (ex.type === 'order' || ex.type === 'fill' || ex.type === 'write') speakAfter(ex.say); }
   else { sfx('bad'); L.queue.push({ ...ex, retry: true, options: ex.options && shuffle(ex.options), tokens: ex.tokens && shuffle(ex.tokens) }); }
+  saveResume();
   renderLesson();
-  animate(ex.type === 'order' ? $('.answer-line') : $(`.opt[data-i="${L.sel}"]`), ok ? 'anim-ok' : 'anim-bad');
+  animate(ex.type === 'order' ? $('.answer-line') : ex.type === 'write' ? $('#dictInput') : $(`.opt[data-i="${L.sel}"]`), ok ? 'anim-ok' : 'anim-bad');
 }
 function nextExercise() {
-  L.i++; L.sel = null; L.built = []; L.answered = false; L.ok = null; L.result = null; L.skipped = false; L.tracked = false;
+  L.i++; L.sel = null; L.built = []; L.typed = ''; L.close = false; L.answered = false; L.ok = null; L.result = null; L.skipped = false; L.tracked = false;
   if (L.i >= L.queue.length) return finishLesson();
   window.scrollTo(0, 0); renderLesson();
-  if (L.queue[L.i].type === 'listen') speak(L.queue[L.i].say);
+  startExerciseAudio();
+}
+/* Al empezar un ejercicio de escuchar, la app dice la palabra (y abre el teclado si hay que escribir) */
+function startExerciseAudio() {
+  const ex = L.queue[L.i];
+  if (ex.type === 'listen' || ex.type === 'write') speak(ex.say);
+  if (ex.type === 'write') { const i = $('#dictInput'); if (i) i.focus(); }
 }
 function finishLesson() {
+  S.resume = null;
   const les = L.les, acc = pct(L.first, L.total), stars = acc >= 90 ? 3 : acc >= 70 ? 2 : 1;
   const isAuto = les.id === 'auto', firstTime = !isAuto && !S.done[les.id];
   const xp = 10 + L.first * 2 + (firstTime ? 5 : 0) + (isAuto ? 5 : 0);
@@ -676,7 +785,7 @@ function onLessonMic(r) {
   if (!r.error) {
     trackPron(r);
     if (!L.tracked) { track('speak', ex.en, ex.es, r.score >= 70); L.tracked = true; }
-    if (r.score >= 70 && !L.answered) { L.answered = true; L.ok = true; won = true; if (!ex.retry) L.first++; sfx(r.score >= 90 ? 'great' : 'ok'); }
+    if (r.score >= 70 && !L.answered) { L.answered = true; L.ok = true; won = true; if (!ex.retry) L.first++; sfx(r.score >= 90 ? 'great' : 'ok'); saveResume(); }
   }
   renderLesson();
   if (won) animate($('.speak-card'), 'anim-ok');
@@ -880,27 +989,54 @@ function reviewHomeHTML() {
     <p class="muted small">Si fallas una tarjeta, vuelve a aparecer en este mismo repaso hasta que la aciertes, y mañana la verás otra vez.</p>
     <div class="boxes">${counts.map((c, i) => `<div><i style="height:${Math.round(c / max * 55) + 4}px"></i>${BOX_NAMES[i]}<br><b>${c}</b></div>`).join('')}</div></section>
     <button class="btn primary wide" data-act="startrev" ${due ? '' : 'disabled'}>${due ? `Empezar repaso (${Math.min(due, 20)})` : 'Todo al día ✅'}</button>
-    <button class="btn ghost wide" data-act="startrev" data-all="1">Repasar todas igual</button>`;
+    <button class="btn ghost wide" data-act="startrev" data-all="1">Repasar todas igual</button>
+    <section class="card" style="margin-top:14px"><h2>⚙️ Cómo repasar</h2>
+      <div class="field">Mostrar primero<div class="seg mini">${[['en', '🇬🇧 Inglés'], ['es', '🇪🇸 Español'], ['mix', '🔀 Mezclado']].map(([v, l]) => `<button class="${(S.cardDir || 'en') === v ? 'on' : ''}" data-act="carddir" data-v="${v}">${l}</button>`).join('')}</div></div>
+      <div class="field">Responder<div class="seg mini"><button class="${S.cardWrite ? '' : 'on'}" data-act="cardwrite" data-v="0">👆 Volteando</button><button class="${S.cardWrite ? 'on' : ''}" data-act="cardwrite" data-v="1">⌨️ Escribiendo</button></div>
+        <small class="muted block" style="margin-top:6px">${S.cardWrite ? 'Escribes la respuesta y la app la revisa. Acepta errores de tildes y una letra de diferencia.' : 'Piensas la respuesta, volteas la tarjeta y dices si la sabías.'}</small></div></section>`;
 }
 function startReview(all) {
   const list = all ? Object.values(S.cards) : dueCards();
   if (!list.length) return;
-  const q = shuffle(list).slice(0, 20).map(c => c.en);
-  F = { queue: q, i: 0, flip: false, unique: q.length, firstRight: 0, failed: new Set() };
+  const q = shuffle(list).slice(0, 20).map(c => c.en), dir = S.cardDir || 'en';
+  F = { queue: q, i: 0, flip: false, unique: q.length, firstRight: 0, failed: new Set(), typed: '', result: null, close: false,
+    dirOf: Object.fromEntries(q.map(en => [en, dir === 'mix' ? pick(['en', 'es']) : dir])) };
   document.body.classList.add('focus'); window.scrollTo(0, 0); render();
+  if (S.cardWrite) { const i = $('#cardInput'); if (i) i.focus(); }
 }
 function reviewHTML() {
-  const en = F.queue[F.i], c = S.cards[en], again = F.failed.has(en);
+  const en = F.queue[F.i], c = S.cards[en], again = F.failed.has(en), d = F.dirOf[en] || 'en', write = !!S.cardWrite;
+  const front = d === 'en' ? c.en : c.es, back = d === 'en' ? c.es : c.en;
+  /* Lo que está en inglés se puede tocar, pero solo cuando ya se ve la respuesta */
+  const show = (txt, isEn) => isEn && F.flip ? tapText(txt) : esc(txt);
+  const answer = write
+    ? (F.flip ? `<div class="card-res ${F.result ? 'ok' : 'bad'}"><b>${F.result ? (F.close ? '✅ ¡Correcto! Revisa cómo se escribe.' : '✅ ¡Correcto!') : '❌ Esta vez no'}</b>${F.typed ? `<span class="small block">Escribiste: ${esc(F.typed)}</span>` : ''}</div>
+        <button class="btn primary wide" data-act="rate" data-v="${F.result ? 1 : 0}">Continuar</button>`
+      : `<form data-form="cardcheck" class="stack"><input id="cardInput" placeholder="Escribe en ${d === 'en' ? 'español' : 'inglés'}…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value="${esc(F.typed)}">
+        <div class="row gap"><button type="button" class="btn ghost grow" data-act="cardidk">No sé</button><button class="btn primary grow">Comprobar</button></div></form>`)
+    : (F.flip ? `<div class="rate-row"><button class="btn no" data-act="rate" data-v="0">😕 No la sabía</button><button class="btn yes" data-act="rate" data-v="1">😎 La sabía</button></div>` : '<p class="muted center small">¿Recuerdas la respuesta? Piénsala y voltea la tarjeta.</p>');
   return `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="bar grow"><i style="width:${pct(F.i, F.queue.length)}%"></i></div><span class="muted small">${F.queue.length - F.i} restantes</span></div>
     ${again ? '<p class="center"><span class="retry-tag">🔁 Esta la fallaste: ¡otra vez!</span></p>' : ''}
-    <button class="flash ${F.flip ? 'flipped' : ''}" data-act="flip"><div class="flash-inner">
-      <div class="face"><span class="label">Inglés</span><b>${esc(c.en)}</b><span class="muted small">Toca para ver la traducción</span></div>
-      <div class="face back"><span class="label">Español</span><b>${esc(c.es)}</b><span>${F.flip ? tapText(c.en) : esc(c.en)}</span></div>
+    <button class="flash ${F.flip ? 'flipped' : ''}" ${write ? '' : 'data-act="flip"'}><div class="flash-inner">
+      <div class="face"><span class="label">${d === 'en' ? 'Inglés' : 'Español'}</span><b>${esc(front)}</b><span class="muted small">${write ? (d === 'en' ? '¿Qué significa?' : '¿Cómo se dice en inglés?') : 'Toca para ver la respuesta'}</span></div>
+      <div class="face back"><span class="label">${d === 'en' ? 'Español' : 'Inglés'}</span><b>${show(back, d === 'es')}</b><span>${show(front, d === 'en')}</span></div>
     </div></button>
-    <div class="row" style="justify-content:center;margin-bottom:16px">${sayBtn(c.en, 'lg')}</div>
-    ${F.flip ? `<div class="rate-row"><button class="btn no" data-act="rate" data-v="0">😕 No la sabía</button><button class="btn yes" data-act="rate" data-v="1">😎 La sabía</button></div>` : '<p class="muted center small">¿Recuerdas qué significa? Piénsalo y voltea la tarjeta.</p>'}`;
+    <div class="row" style="justify-content:center;margin-bottom:16px">${d === 'en' || F.flip ? sayBtn(c.en, 'lg') : ''}</div>
+    ${answer}`;
+}
+function checkCardAnswer(idk) {
+  if (!F || F.flip) return;
+  const en = F.queue[F.i], c = S.cards[en], d = F.dirOf[en] || 'en', typed = (F.typed || '').trim();
+  if (!typed && !idk) return;
+  let r = { ok: false, close: false };
+  if (!idk) r = d === 'es' ? sameAnswer(typed, c.en)
+    : [c.es, ...c.es.split(/[,;/()]+/)].map(x => x.trim()).filter(Boolean).map(o => sameAnswer(typed, o)).find(x => x.ok) || r;
+  F.result = r.ok; F.close = r.close; F.flip = true;
+  sfx(r.ok ? 'ok' : idk ? 'flip' : 'bad'); render(); speakAfter(c.en);
+  animate($('.flash'), r.ok ? 'anim-ok' : 'anim-bad');
 }
 function rateCard(v) {
+  F.typed = ''; F.result = null; F.close = false;
   const en = F.queue[F.i], c = S.cards[en], again = F.failed.has(en);
   if (v) {
     if (again) { c.box = 1; c.due = Date.now() + 864e5; }
@@ -918,7 +1054,7 @@ function rateCard(v) {
       stats: [[`+${xp}`, 'XP'], [`${right}/${unique}`, 'A la primera'], [fixed, 'Reforzadas']],
       note: fixed ? 'Las tarjetas que fallaste volverán mañana para asegurarte de no olvidarlas.' : '¡Perfecto, ninguna fallada! 🌟' });
     celebrate();
-  } else render();
+  } else { render(); if (S.cardWrite) { const i = $('#cardInput'); if (i) i.focus(); } }
 }
 function dictHTML() {
   const custom = Object.values(S.cards).filter(c => c.custom);
@@ -1609,7 +1745,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.6 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 2.7 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -1619,15 +1755,18 @@ const ACTIONS = {
   seg: el => { const [k, v] = el.dataset.seg.split(':'); if (k === 'talk') talkSeg = v; else if (k === 'cards') cardSeg = v; else statSeg = v; render(); },
   say: el => speak(el.dataset.t, !!el.dataset.slow),
   lesson: el => startLesson(el.dataset.id),
-  begin: () => { if (!L) return; L.intro = false; renderLesson(); if (L.queue[0].type === 'listen') speak(L.queue[0].say); },
+  begin: () => { if (!L) return; L.intro = false; L.i = L.resumeAt || 0; renderLesson(); startExerciseAudio(); },
+  restart: () => { if (!L) return; const id = L.les.id; S.resume = null; save(); startLesson(id, true); },
   opt: el => { if (!L || L.answered) return; L.sel = +el.dataset.i; renderLesson(); },
   chip: el => { if (!L || L.answered) return; L.built.push(+el.dataset.i); renderLesson(); },
   chipback: el => { if (!L || L.answered) return; L.built.splice(+el.dataset.k, 1); renderLesson(); },
   check: () => { if (!L) return; if (L.answered) nextExercise(); else evaluateLesson(); },
-  speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; renderLesson(); },
+  speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; saveResume(); renderLesson(); },
   quit: () => {
     const back = L ? 'lessons' : (D || P) ? 'talk' : W ? 'write' : 'cards';
-    if (((L && !L.intro) || (D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
+    /* En las lecciones no se pierde nada: el avance queda guardado */
+    if (L && !L.intro) { saveResume(); if (S.resume) toast('💾 Guardé tu avance. Continúa cuando quieras.'); go(back); return; }
+    if (((D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
     go(back);
   },
   mic: el => {
@@ -1697,6 +1836,12 @@ const ACTIONS = {
   import: () => { const f = $('#importFile'); f.value = ''; f.click(); },
   theme: el => { S.theme = el.dataset.v; save(); applyTheme(); render(); },
   sound: el => { S.sound = el.dataset.v === '1'; save(); render(); if (S.sound) sfx('ok'); },
+  glevel: el => { grammarLevel = el.dataset.v; render(); },
+  carddir: el => { S.cardDir = el.dataset.v; save(); render(); },
+  cardwrite: el => { S.cardWrite = el.dataset.v === '1'; save(); render(); },
+  cardidk: () => checkCardAnswer(true),
+  jumplevel: el => { const s = $(`#view .unit[data-level="${el.dataset.v}"]`); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  favdone: () => { S.favTip = true; save(); render(); },
   accent: el => { const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
@@ -1713,6 +1858,10 @@ document.addEventListener('submit', e => {
     if (S.cards[en]) { toast('Esa palabra ya está en tus tarjetas'); return; }
     S.cards[en] = { en, es, box: 1, due: 0, custom: true }; S.added++; save(); checkAch();
     toast('📝 Palabra agregada'); render();
+  } else if (f.dataset.form === 'dictation') {
+    if (L && !L.answered && L.typed.trim()) evaluateLesson();
+  } else if (f.dataset.form === 'cardcheck') {
+    checkCardAnswer();
   } else if (f.dataset.form === 'custom') {
     const p = f.phrase.value.trim(); if (!p) return;
     pronCurrent = p; pronResult = null; render(); speak(p);
@@ -1721,6 +1870,8 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'dq') { dictSearchQ = t.value; renderSearch(); }
+  else if (t.id === 'dictInput' && L) { L.typed = t.value; const b = $('#view [data-act="check"]'); if (b) b.disabled = !t.value.trim(); }
+  else if (t.id === 'cardInput' && F) { F.typed = t.value; }
   else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
