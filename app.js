@@ -173,6 +173,8 @@ const ACH = [
   { id: 'first', icon: '🎯', name: 'Primer paso', desc: 'Completa tu primera lección', test: () => Object.keys(S.done).length >= 1 },
   { id: 'unit', icon: '📘', name: 'Unidad completa', desc: 'Termina una unidad entera', test: () => LESSONS.some(u => u.lessons.every(l => S.done[l.id])) },
   { id: 'a2', icon: '🎓', name: 'Nivel A2', desc: 'Completa tu primera lección A2', test: () => LESSONS.some(u => u.level === 'A2' && u.lessons.some(l => S.done[l.id])) },
+  ...[['b1', '🥉', 'B1'], ['b2', '🥈', 'B2'], ['c1', '🥇', 'C1'], ['c2', '👑', 'C2']].map(([id, icon, lv]) => (
+    { id, icon, name: `Nivel ${lv}`, desc: `Completa tu primera lección ${lv}`, test: () => LESSONS.some(u => u.level === lv && u.lessons.some(l => S.done[l.id])) })),
   { id: 'streak3', icon: '🔥', name: 'En racha', desc: '3 días seguidos', test: () => currentStreak() >= 3 },
   { id: 'streak7', icon: '⚡', name: 'Imparable', desc: '7 días seguidos', test: () => currentStreak() >= 7 },
   { id: 'xp100', icon: '⭐', name: '100 XP', desc: 'Gana 100 XP', test: () => S.xp >= 100 },
@@ -1745,7 +1747,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 2.8 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.0 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 

@@ -34,7 +34,7 @@ const LESSONS = [
         words: [["water","agua"],["bread","pan"],["chicken","pollo"],["apple","manzana"],["coffee","café"],["hungry","con hambre"],["rice","arroz"],["cheese","queso"],["juice","jugo"],["thirsty","con sed"]],
         sentences: [["I am very hungry","Tengo mucha hambre"],["Can I have some water?","¿Me das un poco de agua?"],["I don't like coffee","No me gusta el café"],["This chicken is delicious","Este pollo está delicioso"],["I would like an orange juice","Quisiera un jugo de naranja"],["We eat rice with chicken","Comemos arroz con pollo"]] },
       { id: "u2l3", title: "La casa", icon: "🏠",
-        tip: "\"There is\" (singular) y \"There are\" (plural) significan \"hay\".",
+        tip: "\"There is\" (singular) y \"There are\" (plural) significan «hay».",
         words: [["kitchen","cocina"],["bedroom","dormitorio"],["bathroom","baño"],["window","ventana"],["door","puerta"],["table","mesa"],["living room","living, sala de estar"],["stairs","escaleras"],["garden","jardín"],["chair","silla"]],
         sentences: [["The kitchen is small","La cocina es pequeña"],["Please close the door","Por favor cierra la puerta"],["There are two windows in my bedroom","Hay dos ventanas en mi dormitorio"],["The keys are on the table","Las llaves están en la mesa"],["The garden is behind the house","El jardín está detrás de la casa"],["Is there a bathroom upstairs?","¿Hay un baño arriba?"]] }
     ]
@@ -139,6 +139,244 @@ const LESSONS = [
         tip: "Muchos verbos de tecnología llevan una partícula: \"log in\" (iniciar sesión), \"sign up\" (registrarse), \"shut down\" (apagar).",
         words: [["laptop","notebook"],["website","sitio web"],["download","descargar"],["screen","pantalla"],["battery","batería"],["update","actualizar"],["password","contraseña"],["log in","iniciar sesión"],["charger","cargador"],["app","app, aplicación"]],
         sentences: [["My laptop battery is low","La batería de mi notebook está baja"],["I need to update the app","Necesito actualizar la app"],["Can you send me the link to the website?","¿Me puedes enviar el link del sitio web?"],["The screen is too small","La pantalla es demasiado pequeña"],["I forgot my password","Se me olvidó la contraseña"],["Can I borrow your charger?","¿Me prestas tu cargador?"]] }
+    ]
+  },
+  {
+    unit: "Experiencias (presente perfecto)", level: "B1",
+    lessons: [
+      { id: "b1u1l1", title: "¿Alguna vez…?", icon: "🌍",
+        tip: "Para experiencias de vida usa «have/has + participio»: \"Have you ever been to Peru?\" (¿Has ido alguna vez a Perú?). Responde \"Yes, I have\" (Sí) o \"No, I haven't\" (No). \"Never\" es nunca: \"I have never tried sushi\" (Nunca he probado sushi).",
+        words: [["ever","alguna vez"],["never","nunca"],["been","estado, ido"],["tried","probado"],["seen","visto"],["eaten","comido"],["experience","experiencia"],["abroad","en el extranjero"],["once","una vez"],["twice","dos veces"]],
+        sentences: [["Have you ever been to Brazil?","¿Has ido alguna vez a Brasil?"],["I have never eaten octopus","Nunca he comido pulpo"],["She has seen that movie twice","Ella ha visto esa película dos veces"],["We have lived abroad","Hemos vivido en el extranjero"],["Have you ever tried yoga?","¿Has probado yoga alguna vez?"],["It was an amazing experience","Fue una experiencia increíble"]] },
+      { id: "b1u1l2", title: "For y since", icon: "⏳",
+        tip: "\"For\" + cantidad de tiempo: \"for two years\" (hace dos años, durante dos años). \"Since\" + punto de inicio: \"since 2020\" (desde 2020). Para preguntar: \"How long have you lived here?\" (¿Cuánto tiempo llevas viviendo aquí?).",
+        words: [["for","por, durante"],["since","desde"],["how long","cuánto tiempo"],["for ages","hace siglos"],["known","conocido"],["worked","trabajado"],["lived","vivido"],["studied","estudiado"],["decade","década"],["recently","recientemente"]],
+        sentences: [["I have lived here for five years","Vivo aquí hace cinco años"],["She has worked here since 2019","Ella trabaja aquí desde 2019"],["How long have you known him?","¿Hace cuánto lo conoces?"],["We have studied English for a year","Estudiamos inglés hace un año"],["I haven't seen her since Monday","No la veo desde el lunes"],["They have been married for a decade","Llevan una década casados"]] },
+      { id: "b1u1l3", title: "Just, already, yet", icon: "✅",
+        tip: "\"Just\" = recién: \"I have just arrived\" (Recién llegué). \"Already\" = ya: \"I have already eaten\" (Ya comí). \"Yet\" va al final en preguntas y negaciones: \"Have you finished yet?\" (¿Ya terminaste?), \"Not yet\" (Todavía no).",
+        words: [["just","recién, justo"],["already","ya"],["yet","todavía, ya"],["finished","terminado"],["arrived","llegado"],["sent","enviado"],["booked","reservado"],["paid","pagado"],["not yet","todavía no"],["so far","hasta ahora"]],
+        sentences: [["I have just arrived home","Recién llegué a la casa"],["Have you finished the report yet?","¿Ya terminaste el informe?"],["She has already paid the bill","Ella ya pagó la cuenta"],["We haven't booked the hotel yet","Todavía no reservamos el hotel"],["I have just sent you a message","Recién te envié un mensaje"],["So far, everything is fine","Hasta ahora, todo está bien"]] }
+    ]
+  },
+  {
+    unit: "Contar historias", level: "B1",
+    lessons: [
+      { id: "b1u2l1", title: "Pasado continuo", icon: "🎞️",
+        tip: "\"Was/were + -ing\" describe algo que estaba pasando: \"I was cooking\" (Estaba cocinando). Con \"when\" algo lo interrumpe: \"I was sleeping when you called\" (Estaba durmiendo cuando llamaste).",
+        words: [["was cooking","estaba cocinando"],["were talking","estaban conversando"],["while","mientras"],["when","cuando"],["suddenly","de repente"],["happened","pasó"],["noise","ruido"],["raining","lloviendo"],["driving","manejando"],["fell asleep","se quedó dormido"]],
+        sentences: [["I was cooking when the phone rang","Estaba cocinando cuando sonó el teléfono"],["They were talking while I was working","Ellos conversaban mientras yo trabajaba"],["It was raining when we left","Estaba lloviendo cuando salimos"],["What were you doing at eight?","¿Qué estabas haciendo a las ocho?"],["Suddenly, we heard a loud noise","De repente, escuchamos un ruido fuerte"],["He fell asleep while he was reading","Se quedó dormido mientras leía"]] },
+      { id: "b1u2l2", title: "Used to", icon: "🧸",
+        tip: "\"Used to\" + verbo = algo que hacías antes y ya no: \"I used to live in Lima\" (Antes vivía en Lima). En negativo: \"I didn't use to like coffee\" (Antes no me gustaba el café).",
+        words: [["used to","solía"],["childhood","infancia"],["neighborhood","barrio"],["anymore","ya no"],["often","seguido"],["toy","juguete"],["grandparents","abuelos"],["remember","acordarse"],["memories","recuerdos"],["grew up","crecí"]],
+        sentences: [["I used to play in the street","Antes jugaba en la calle"],["We used to visit my grandparents every summer","Solíamos visitar a mis abuelos cada verano"],["She didn't use to like vegetables","Antes no le gustaban las verduras"],["I don't live there anymore","Ya no vivo ahí"],["I grew up in a small town","Crecí en un pueblo pequeño"],["I have great memories of my childhood","Tengo lindos recuerdos de mi infancia"]] },
+      { id: "b1u2l3", title: "Ordenar una historia", icon: "🔗",
+        tip: "Para ordenar una historia: \"first\" (primero), \"then\" (luego), \"after that\" (después de eso), \"finally\" (al final). Para contrastar: \"but\" (pero), \"however\" (sin embargo).",
+        words: [["first","primero"],["then","luego"],["after that","después de eso"],["finally","finalmente"],["however","sin embargo"],["meanwhile","mientras tanto"],["later","más tarde"],["in the end","al final"],["at first","al principio"],["unfortunately","lamentablemente"]],
+        sentences: [["First, we went to the museum","Primero, fuimos al museo"],["After that, we had lunch by the sea","Después de eso, almorzamos frente al mar"],["At first, I was nervous","Al principio, estaba nerviosa"],["Unfortunately, the train was late","Lamentablemente, el tren venía atrasado"],["In the end, we had a great time","Al final, lo pasamos muy bien"],["It was cold; however, we went swimming","Hacía frío; sin embargo, fuimos a nadar"]] }
+    ]
+  },
+  {
+    unit: "Futuro y condiciones", level: "B1",
+    lessons: [
+      { id: "b1u3l1", title: "Will o going to", icon: "🔮",
+        tip: "\"Going to\" = un plan ya decidido: \"I'm going to visit my aunt\" (Voy a visitar a mi tía). \"Will\" = una decisión del momento o una predicción: \"I'll help you\" (Te ayudo), \"It will rain\" (Va a llover).",
+        words: [["will","(futuro)"],["going to","ir a"],["probably","probablemente"],["definitely","seguro, sin duda"],["promise","prometer"],["forecast","pronóstico"],["predict","predecir"],["decide","decidir"],["future","futuro"],["I'll","yo (futuro)"]],
+        sentences: [["I think it will rain tomorrow","Creo que va a llover mañana"],["I'm going to start a new course","Voy a empezar un curso nuevo"],["Don't worry, I'll help you","No te preocupes, te ayudo"],["She will probably be late","Ella probablemente llegue tarde"],["We are going to move in March","Nos vamos a mudar en marzo"],["I promise I will call you","Te prometo que te llamaré"]] },
+      { id: "b1u3l2", title: "Primer condicional", icon: "☂️",
+        tip: "«If + presente, will + verbo» para situaciones posibles: \"If it rains, I will stay home\" (Si llueve, me quedaré en casa). Ojo: después de \"if\" no va \"will\".",
+        words: [["if","si"],["unless","a menos que"],["as soon as","apenas"],["in case","por si acaso"],["umbrella","paraguas"],["miss","perder (un bus)"],["hurry","apurarse"],["pass","aprobar"],["fail","reprobar"],["traffic","tráfico"]],
+        sentences: [["If it rains, I will stay home","Si llueve, me quedaré en casa"],["If you hurry, you won't miss the bus","Si te apuras, no perderás la micro"],["I'll call you as soon as I arrive","Te llamo apenas llegue"],["Take an umbrella in case it rains","Lleva paraguas por si llueve"],["If you study, you will pass the exam","Si estudias, aprobarás el examen"],["We'll be late unless we leave now","Llegaremos tarde a menos que salgamos ahora"]] },
+      { id: "b1u3l3", title: "Might, may y must", icon: "🤔",
+        tip: "\"Might\" y \"may\" = quizás: \"I might go to the party\" (Quizás vaya a la fiesta). \"Must\" cuando estás casi segura: \"She must be tired\" (Debe estar cansada).",
+        words: [["might","podría, quizás"],["may","puede que"],["must be","debe estar"],["perhaps","tal vez"],["possible","posible"],["sure","seguro"],["doubt","dudar"],["chance","posibilidad"],["guess","suponer"],["it depends","depende"]],
+        sentences: [["I might go to the beach this weekend","Quizás vaya a la playa este fin de semana"],["It may be cold tonight","Puede que haga frío esta noche"],["She must be tired after the trip","Debe estar cansada después del viaje"],["I'm not sure, it depends on the weather","No estoy segura, depende del clima"],["There is a good chance of rain","Hay buenas posibilidades de lluvia"],["I doubt he will come","Dudo que venga"]] }
+    ]
+  },
+  {
+    unit: "Opiniones y obligaciones", level: "B1",
+    lessons: [
+      { id: "b1u4l1", title: "Dar tu opinión", icon: "💬",
+        tip: "Para opinar: \"I think…\" (Creo que…), \"In my opinion…\" (En mi opinión…). Para estar de acuerdo: \"I agree\" (Estoy de acuerdo). Para discrepar con cortesía: \"I see your point, but…\" (Entiendo tu punto, pero…).",
+        words: [["opinion","opinión"],["agree","estar de acuerdo"],["disagree","no estar de acuerdo"],["point","punto"],["believe","creer"],["actually","en realidad"],["true","cierto"],["exactly","exacto"],["prefer","preferir"],["depend on","depender de"]],
+        sentences: [["In my opinion, it's too expensive","En mi opinión, es demasiado caro"],["I agree with you completely","Estoy totalmente de acuerdo contigo"],["I see your point, but I disagree","Entiendo tu punto, pero no estoy de acuerdo"],["Actually, I prefer the other one","En realidad, prefiero el otro"],["That's true, but it depends on the price","Es cierto, pero depende del precio"],["I believe we can do better","Creo que podemos hacerlo mejor"]] },
+      { id: "b1u4l2", title: "Have to y must", icon: "📋",
+        tip: "\"Have to\" = obligación que viene de afuera: \"I have to work\" (Tengo que trabajar). \"Must\" = obligación fuerte o regla: \"You must wear a seatbelt\" (Debes usar cinturón). \"Don't have to\" = no es necesario: \"You don't have to come\" (No tienes que venir).",
+        words: [["have to","tener que"],["must","deber"],["mustn't","no deber"],["don't have to","no tener que"],["allowed","permitido"],["rule","regla"],["necessary","necesario"],["seatbelt","cinturón de seguridad"],["uniform","uniforme"],["forbidden","prohibido"]],
+        sentences: [["I have to work on Saturday","Tengo que trabajar el sábado"],["You must wear a seatbelt","Debes usar el cinturón de seguridad"],["You don't have to pay, it's free","No tienes que pagar, es gratis"],["You mustn't smoke here","No debes fumar aquí"],["Are dogs allowed in the park?","¿Se permiten perros en el parque?"],["It isn't necessary to book","No es necesario reservar"]] },
+      { id: "b1u4l3", title: "Dar consejos", icon: "💡",
+        tip: "\"Should\" = deberías: \"You should rest\" (Deberías descansar). \"Why don't you…?\" (¿Por qué no…?) sugiere algo: \"Why don't you call her?\" (¿Por qué no la llamas?). \"If I were you…\" (Yo que tú…).",
+        words: [["should","debería"],["shouldn't","no debería"],["advice","consejo"],["suggest","sugerir"],["why don't you","por qué no"],["if I were you","yo que tú"],["try","intentar"],["worth it","vale la pena"],["avoid","evitar"],["recommend","recomendar"]],
+        sentences: [["You should drink more water","Deberías tomar más agua"],["Why don't you take a break?","¿Por qué no tomas un descanso?"],["If I were you, I would accept the job","Yo que tú, aceptaría el trabajo"],["You shouldn't work so late","No deberías trabajar hasta tan tarde"],["I suggest we leave early","Sugiero que salgamos temprano"],["The trip is expensive, but it's worth it","El viaje es caro, pero vale la pena"]] }
+    ]
+  },
+  {
+    unit: "Hipótesis y deseos", level: "B2",
+    lessons: [
+      { id: "b2u1l1", title: "Segundo condicional", icon: "💭",
+        tip: "«If + pasado, would + verbo» para situaciones imaginarias: \"If I had more time, I would travel\" (Si tuviera más tiempo, viajaría). Con \"be\" se usa \"were\": \"If I were rich…\" (Si fuera rica…).",
+        words: [["would","(condicional)"],["imagine","imaginar"],["rich","rico"],["lottery","lotería"],["win","ganar"],["afford","costear, alcanzar para"],["quit","renunciar"],["dream job","trabajo soñado"],["if I were","si yo fuera"],["anywhere","cualquier lugar"]],
+        sentences: [["If I won the lottery, I would travel the world","Si ganara la lotería, viajaría por el mundo"],["If I were you, I wouldn't worry","Yo que tú, no me preocuparía"],["What would you do if you lost your job?","¿Qué harías si perdieras tu trabajo?"],["If I had more time, I would learn to paint","Si tuviera más tiempo, aprendería a pintar"],["I would buy a house if I could afford it","Compraría una casa si me alcanzara"],["Imagine you could live anywhere","Imagina que pudieras vivir en cualquier lugar"]] },
+      { id: "b2u1l2", title: "Tercer condicional", icon: "🕰️",
+        tip: "«If + had + participio, would have + participio» para un pasado que no pasó: \"If I had studied, I would have passed\" (Si hubiera estudiado, habría aprobado).",
+        words: [["would have","habría"],["had known","hubiera sabido"],["regret","arrepentirse"],["mistake","error"],["missed","perdido"],["opportunity","oportunidad"],["otherwise","de lo contrario"],["earlier","antes"],["warned","advertido"],["luckily","por suerte"]],
+        sentences: [["If I had known, I would have called you","Si hubiera sabido, te habría llamado"],["If we had left earlier, we wouldn't have missed the flight","Si hubiéramos salido antes, no habríamos perdido el vuelo"],["She would have come if you had invited her","Ella habría venido si la hubieras invitado"],["I regret missing that opportunity","Me arrepiento de haber perdido esa oportunidad"],["Luckily, someone warned us","Por suerte, alguien nos advirtió"],["It was a mistake, but I learned a lot","Fue un error, pero aprendí mucho"]] },
+      { id: "b2u1l3", title: "Wish e if only", icon: "🌠",
+        tip: "«I wish + pasado» = ojalá (sobre el presente): \"I wish I had more time\" (Ojalá tuviera más tiempo). «I wish + had + participio» = lamento del pasado: \"I wish I had studied more\" (Ojalá hubiera estudiado más). \"If only…\" (Si tan solo…) es más intenso.",
+        words: [["wish","desear, ojalá"],["if only","si tan solo"],["could","pudiera"],["would rather","preferiría"],["hopefully","ojalá, con suerte"],["it's time","ya es hora"],["complain","quejarse"],["patience","paciencia"],["miss","extrañar"],["better off","mejor (en mejor situación)"]],
+        sentences: [["I wish I spoke English fluently","Ojalá hablara inglés con fluidez"],["If only I had more patience","Si tan solo tuviera más paciencia"],["I wish I had listened to you","Ojalá te hubiera escuchado"],["I would rather stay home tonight","Preferiría quedarme en casa esta noche"],["It's time we left","Ya es hora de que nos vayamos"],["I really miss my old friends","Extraño mucho a mis viejos amigos"]] }
+    ]
+  },
+  {
+    unit: "Voz pasiva y lo que otros dicen", level: "B2",
+    lessons: [
+      { id: "b2u2l1", title: "Voz pasiva", icon: "🏗️",
+        tip: "La pasiva destaca lo que se hace, no quién lo hace: «be + participio». \"The bridge was built in 1990\" (El puente fue construido en 1990). \"English is spoken here\" (Aquí se habla inglés).",
+        words: [["was built","fue construido"],["is made","está hecho"],["was written","fue escrito"],["is spoken","se habla"],["was invented","fue inventado"],["is sold","se vende"],["by","por"],["delivered","entregado"],["designed","diseñado"],["founded","fundado"]],
+        sentences: [["This house was built in 1950","Esta casa fue construida en 1950"],["Spanish is spoken in many countries","El español se habla en muchos países"],["The book was written by a Chilean author","El libro fue escrito por un autor chileno"],["The package will be delivered tomorrow","El paquete será entregado mañana"],["This logo was designed by my team","Este logo fue diseñado por mi equipo"],["The company was founded twenty years ago","La empresa fue fundada hace veinte años"]] },
+      { id: "b2u2l2", title: "Estilo indirecto", icon: "🗣️",
+        tip: "Para contar lo que alguien dijo, el tiempo retrocede: \"I am tired\" (Estoy cansada) → \"She said she was tired\" (Dijo que estaba cansada). \"Will\" pasa a \"would\": \"He said he would call\" (Dijo que llamaría).",
+        words: [["said","dijo"],["told","le dijo"],["explained","explicó"],["mentioned","mencionó"],["admitted","admitió"],["claimed","afirmó"],["promised","prometió"],["replied","respondió"],["denied","negó"],["according to","según"]],
+        sentences: [["She said she was very tired","Ella dijo que estaba muy cansada"],["He told me he would call later","Me dijo que llamaría más tarde"],["They explained that the flight was cancelled","Explicaron que el vuelo estaba cancelado"],["My boss mentioned that we had a meeting","Mi jefe mencionó que teníamos una reunión"],["According to the news, it will snow","Según las noticias, va a nevar"],["He denied that he had taken the money","Negó haber tomado el dinero"]] },
+      { id: "b2u2l3", title: "Preguntas indirectas", icon: "❓",
+        tip: "Las preguntas indirectas son más educadas y no invierten el orden: \"Where is the bank?\" (¿Dónde está el banco?) → \"Could you tell me where the bank is?\" (¿Me podría decir dónde está el banco?). Para sí o no se usa \"if\": \"I wonder if it's open\" (Me pregunto si está abierto).",
+        words: [["could you tell me","me podría decir"],["do you know","sabe"],["I wonder","me pregunto"],["whether","si (duda)"],["asked","preguntó"],["wanted to know","quería saber"],["available","disponible"],["directions","indicaciones"],["opening hours","horario de atención"],["exactly","exactamente"]],
+        sentences: [["Could you tell me where the station is?","¿Me podría decir dónde está la estación?"],["Do you know what time it opens?","¿Sabe a qué hora abre?"],["I wonder if they are still open","Me pregunto si todavía están abiertos"],["She asked me where I lived","Me preguntó dónde vivía"],["He wanted to know whether I was available","Quería saber si yo estaba disponible"],["Do you know exactly how much it costs?","¿Sabe exactamente cuánto cuesta?"]] }
+    ]
+  },
+  {
+    unit: "Conectar ideas", level: "B2",
+    lessons: [
+      { id: "b2u3l1", title: "Contrastar ideas", icon: "⚖️",
+        tip: "\"Although\" + oración: \"Although it was late, we stayed\" (Aunque era tarde, nos quedamos). \"Despite\" + sustantivo o -ing: \"Despite the rain\" (A pesar de la lluvia). \"Whereas\" compara: \"I like tea, whereas he likes coffee\" (A mí me gusta el té, mientras que a él le gusta el café).",
+        words: [["although","aunque"],["despite","a pesar de"],["in spite of","a pesar de"],["whereas","mientras que"],["even though","aunque"],["on the other hand","por otro lado"],["nevertheless","no obstante"],["instead","en cambio"],["rather than","en vez de"],["while","mientras que"]],
+        sentences: [["Although it was late, we kept working","Aunque era tarde, seguimos trabajando"],["Despite the rain, the concert was amazing","A pesar de la lluvia, el concierto fue increíble"],["I like the city, whereas my husband prefers the countryside","A mí me gusta la ciudad, mientras que mi esposo prefiere el campo"],["Even though she was tired, she went to the gym","Aunque estaba cansada, fue al gimnasio"],["On the other hand, it's very expensive","Por otro lado, es muy caro"],["Let's walk rather than take a taxi","Caminemos en vez de tomar un taxi"]] },
+      { id: "b2u3l2", title: "Who, which, whose", icon: "🔍",
+        tip: "\"Who\" para personas, \"which\" para cosas, \"that\" para ambas, \"whose\" = cuyo: \"The woman who called is my boss\" (La mujer que llamó es mi jefa). \"The app, which is free, is very useful\" (La app, que es gratis, es muy útil).",
+        words: [["who","que, quien"],["which","que, el cual"],["whose","cuyo"],["where","donde"],["that","que"],["whom","a quien"],["neighbor","vecino"],["colleague","colega"],["owner","dueño"],["recommended","recomendado"]],
+        sentences: [["The woman who called is my new boss","La mujer que llamó es mi nueva jefa"],["The app, which is free, is very useful","La app, que es gratis, es muy útil"],["That's the restaurant where we met","Ese es el restaurante donde nos conocimos"],["I have a neighbor whose dog never stops barking","Tengo un vecino cuyo perro nunca deja de ladrar"],["The book that you recommended was great","El libro que recomendaste era genial"],["He is the colleague I told you about","Él es el colega del que te hablé"]] },
+      { id: "b2u3l3", title: "Phrasal verbs del día a día", icon: "🔧",
+        tip: "Un phrasal verb es verbo + partícula, y cambia el significado: \"give up\" (rendirse), \"find out\" (averiguar), \"look forward to\" (esperar con ganas), \"run out of\" (quedarse sin).",
+        words: [["give up","rendirse, dejar"],["find out","averiguar"],["look forward to","esperar con ganas"],["run out of","quedarse sin"],["put off","postergar"],["get along with","llevarse bien con"],["turn down","rechazar"],["come up with","ocurrírsele"],["deal with","lidiar con"],["figure out","entender, resolver"]],
+        sentences: [["Don't give up, you can do it","No te rindas, tú puedes"],["We ran out of milk","Se nos acabó la leche"],["I'm looking forward to the holidays","Tengo muchas ganas de que lleguen las vacaciones"],["She gets along with everyone","Ella se lleva bien con todos"],["I turned down the job offer","Rechacé la oferta de trabajo"],["Let's figure out a solution","Busquemos una solución"]] }
+    ]
+  },
+  {
+    unit: "Trabajo y mundo actual", level: "B2",
+    lessons: [
+      { id: "b2u4l1", title: "Negociar y proponer", icon: "🤝",
+        tip: "Para proponer con tacto: \"What if we…?\" (¿Y si…?), \"Would it be possible to…?\" (¿Sería posible…?). Para ceder: \"That sounds fair\" (Me parece justo). \"Meet halfway\" = llegar a un punto medio.",
+        words: [["proposal","propuesta"],["deal","acuerdo"],["budget","presupuesto"],["fair","justo"],["compromise","término medio"],["deadline","plazo"],["negotiate","negociar"],["offer","oferta"],["meet halfway","llegar a un punto medio"],["terms","condiciones"]],
+        sentences: [["Would it be possible to extend the deadline?","¿Sería posible extender el plazo?"],["What if we split the cost?","¿Y si dividimos el costo?"],["That sounds fair to me","Me parece justo"],["Let's meet halfway","Lleguemos a un punto medio"],["We need to stay within the budget","Tenemos que mantenernos dentro del presupuesto"],["Could you send me the terms of the offer?","¿Me podrías enviar las condiciones de la oferta?"]] },
+      { id: "b2u4l2", title: "Medio ambiente", icon: "🌱",
+        tip: "Expresiones clave: \"climate change\" (cambio climático), \"reduce, reuse, recycle\" (reducir, reutilizar, reciclar). \"It's up to us\" (Depende de nosotros).",
+        words: [["climate change","cambio climático"],["pollution","contaminación"],["recycle","reciclar"],["waste","desperdicio, basura"],["renewable","renovable"],["energy","energía"],["plastic","plástico"],["sustainable","sustentable"],["drought","sequía"],["carbon footprint","huella de carbono"]],
+        sentences: [["Climate change affects everyone","El cambio climático nos afecta a todos"],["We should reduce plastic waste","Deberíamos reducir los desechos plásticos"],["Solar energy is renewable","La energía solar es renovable"],["The drought is getting worse","La sequía está empeorando"],["I try to reduce my carbon footprint","Trato de reducir mi huella de carbono"],["It's up to us to protect the planet","Depende de nosotros proteger el planeta"]] },
+      { id: "b2u4l3", title: "Tecnología y medios", icon: "📱",
+        tip: "Vocabulario de hoy: \"to go viral\" (hacerse viral), \"screen time\" (tiempo de pantalla), \"fake news\" (noticias falsas). \"Keep up with\" = mantenerse al día.",
+        words: [["go viral","hacerse viral"],["screen time","tiempo de pantalla"],["fake news","noticias falsas"],["keep up with","mantenerse al día"],["privacy","privacidad"],["device","dispositivo"],["notification","notificación"],["subscribe","suscribirse"],["artificial intelligence","inteligencia artificial"],["addicted","adicto"]],
+        sentences: [["The video went viral in one day","El video se hizo viral en un día"],["I want to reduce my screen time","Quiero reducir mi tiempo de pantalla"],["Always check the source to avoid fake news","Siempre revisa la fuente para evitar noticias falsas"],["It's hard to keep up with technology","Es difícil mantenerse al día con la tecnología"],["I turned off my notifications","Desactivé mis notificaciones"],["Artificial intelligence is changing our jobs","La inteligencia artificial está cambiando nuestros trabajos"]] }
+    ]
+  },
+  {
+    unit: "Gramática avanzada", level: "C1",
+    lessons: [
+      { id: "c1u1l1", title: "Inversión para dar énfasis", icon: "🔄",
+        tip: "Con una palabra negativa al inicio, el auxiliar va antes del sujeto: \"Never have I seen such a view\" (Nunca he visto una vista así). Con \"not only… but also\": \"Not only is it cheap, but it's also fast\" (No solo es barato, sino también rápido).",
+        words: [["never have I","nunca he"],["not only","no solo"],["rarely","rara vez"],["hardly ever","casi nunca"],["no sooner","apenas"],["under no circumstances","bajo ninguna circunstancia"],["little did I know","poco sabía yo"],["seldom","rara vez"],["by no means","de ninguna manera"],["only then","solo entonces"]],
+        sentences: [["Never have I seen such a beautiful view","Nunca he visto una vista tan hermosa"],["Not only is it cheap, but it's also fast","No solo es barato, sino que también es rápido"],["Rarely do we get such good weather","Rara vez tenemos tan buen clima"],["Under no circumstances should you open it","Bajo ninguna circunstancia debes abrirlo"],["Little did I know what would happen","Poco sabía yo lo que pasaría"],["Only then did I understand the problem","Solo entonces entendí el problema"]] },
+      { id: "c1u1l2", title: "Destacar una parte", icon: "🎯",
+        tip: "Para destacar una parte de la oración: \"What I need is a break\" (Lo que necesito es un descanso). \"It was Ana who called\" (Fue Ana quien llamó). \"The thing is…\" (El tema es que…).",
+        words: [["what I need","lo que necesito"],["it was she who","fue ella quien"],["the thing is","el tema es que"],["the reason why","la razón por la que"],["all I want","lo único que quiero"],["what matters","lo que importa"],["the point is","lo importante es"],["emphasis","énfasis"],["highlight","destacar"],["the last thing","lo último"]],
+        sentences: [["What I need is a long holiday","Lo que necesito son unas largas vacaciones"],["It was my sister who told me","Fue mi hermana quien me lo contó"],["The thing is, I don't have time","El tema es que no tengo tiempo"],["All I want is some peace and quiet","Lo único que quiero es un poco de tranquilidad"],["The reason why I left was the salary","La razón por la que me fui fue el sueldo"],["What matters most is your health","Lo que más importa es tu salud"]] },
+      { id: "c1u1l3", title: "Condicionales mixtos", icon: "🔀",
+        tip: "Mezclan tiempos. Del pasado al presente: \"If I had studied medicine, I would be a doctor now\" (Si hubiera estudiado medicina, ahora sería doctora). Del presente al pasado: \"If I weren't so shy, I would have spoken\" (Si no fuera tan tímida, habría hablado).",
+        words: [["would be","sería"],["had taken","hubiera tomado"],["by now","a estas alturas"],["weren't","no fuera"],["career","carrera"],["path","camino"],["decision","decisión"],["consequence","consecuencia"],["different","distinto"],["would have spoken","habría hablado"]],
+        sentences: [["If I had studied medicine, I would be a doctor now","Si hubiera estudiado medicina, ahora sería doctora"],["If I weren't so shy, I would have spoken","Si no fuera tan tímida, habría hablado"],["If we had taken that road, we would be there by now","Si hubiéramos tomado ese camino, ya estaríamos ahí"],["Every decision has a consequence","Cada decisión tiene una consecuencia"],["My life would be very different","Mi vida sería muy distinta"],["She chose a different career path","Ella eligió otro camino profesional"]] }
+    ]
+  },
+  {
+    unit: "Expresarse con precisión", level: "C1",
+    lessons: [
+      { id: "c1u2l1", title: "Suavizar lo que dices", icon: "🪶",
+        tip: "Para sonar menos directo: \"It seems that…\" (Parece que…), \"I tend to think…\" (Tiendo a pensar…), \"arguably\" (se podría decir). \"To some extent\" = hasta cierto punto.",
+        words: [["it seems","parece"],["apparently","al parecer"],["arguably","se podría decir"],["to some extent","hasta cierto punto"],["tend to","tender a"],["somewhat","algo, un tanto"],["likely","probable"],["presumably","presumiblemente"],["suggest","sugerir"],["slightly","ligeramente"]],
+        sentences: [["It seems that the plan isn't working","Parece que el plan no está funcionando"],["This is arguably the best option","Se podría decir que esta es la mejor opción"],["To some extent, you are right","Hasta cierto punto, tienes razón"],["I tend to think it's too risky","Tiendo a pensar que es demasiado arriesgado"],["The results are slightly better","Los resultados son ligeramente mejores"],["Prices are likely to rise","Es probable que los precios suban"]] },
+      { id: "c1u2l2", title: "Colocaciones", icon: "🧩",
+        tip: "Algunas palabras siempre van juntas: \"make a decision\" (tomar una decisión), \"do your best\" (hacer lo mejor posible), \"heavy rain\" (lluvia fuerte), \"strong coffee\" (café cargado).",
+        words: [["make a decision","tomar una decisión"],["do your best","hacer lo mejor posible"],["heavy rain","lluvia fuerte"],["strong coffee","café cargado"],["pay attention","poner atención"],["take a risk","correr un riesgo"],["catch a cold","resfriarse"],["make progress","avanzar"],["keep a promise","cumplir una promesa"],["break the ice","romper el hielo"]],
+        sentences: [["It's time to make a decision","Es hora de tomar una decisión"],["Just do your best","Solo haz lo mejor que puedas"],["There was heavy rain all night","Hubo lluvia fuerte toda la noche"],["You are making great progress","Estás avanzando muchísimo"],["Sometimes you have to take a risk","A veces hay que correr un riesgo"],["He told a joke to break the ice","Contó un chiste para romper el hielo"]] },
+      { id: "c1u2l3", title: "Formal e informal", icon: "🎩",
+        tip: "El registro cambia según el contexto: \"ask for\" → \"request\" (solicitar), \"get\" → \"receive\" (recibir), \"help\" → \"assist\" (asistir). En un correo formal: \"I look forward to hearing from you\" (Quedo atenta a su respuesta).",
+        words: [["request","solicitar"],["receive","recibir"],["assist","asistir, ayudar"],["inquire","consultar"],["regarding","respecto a"],["sincerely","atentamente"],["kind regards","saludos cordiales"],["attached","adjunto"],["apologize for","disculparse por"],["at your earliest convenience","a la brevedad"]],
+        sentences: [["I am writing regarding my order","Le escribo respecto a mi pedido"],["Please find the document attached","Adjunto encontrará el documento"],["I would like to request more information","Quisiera solicitar más información"],["We apologize for the inconvenience","Pedimos disculpas por las molestias"],["Please reply at your earliest convenience","Por favor responda a la brevedad"],["I look forward to hearing from you","Quedo atenta a su respuesta"]] }
+    ]
+  },
+  {
+    unit: "Expresiones idiomáticas", level: "C1",
+    lessons: [
+      { id: "c1u3l1", title: "Idioms comunes", icon: "🎭",
+        tip: "Los idioms no se traducen palabra por palabra: \"It's a piece of cake\" (Es pan comido), \"Break a leg!\" (¡Mucha suerte!), \"Once in a blue moon\" (Muy de vez en cuando).",
+        words: [["a piece of cake","pan comido"],["break a leg","mucha suerte"],["once in a blue moon","muy de vez en cuando"],["under the weather","indispuesto"],["hit the books","ponerse a estudiar"],["call it a day","dar por terminado el día"],["cost an arm and a leg","costar un ojo de la cara"],["on the same page","en sintonía"],["spill the beans","soltar la sopa"],["the last straw","la gota que rebalsó el vaso"]],
+        sentences: [["The exam was a piece of cake","El examen fue pan comido"],["I'm feeling a bit under the weather","Me siento un poco indispuesta"],["Let's call it a day","Demos por terminado el día"],["That phone costs an arm and a leg","Ese teléfono cuesta un ojo de la cara"],["We need to be on the same page","Tenemos que estar en sintonía"],["Don't spill the beans about the party","No sueltes la sopa sobre la fiesta"]] },
+      { id: "c1u3l2", title: "Phrasal verbs avanzados", icon: "⚙️",
+        tip: "Muchos phrasal verbs tienen sentido figurado: \"bring up\" (sacar un tema), \"carry out\" (llevar a cabo), \"come across\" (encontrarse con), \"make up for\" (compensar).",
+        words: [["bring up","sacar (un tema)"],["carry out","llevar a cabo"],["come across","encontrarse con"],["make up for","compensar"],["put up with","aguantar"],["look into","investigar"],["set up","armar, instalar"],["stand out","destacar"],["back up","respaldar"],["wear off","pasarse (un efecto)"]],
+        sentences: [["She brought up an interesting point","Ella sacó un punto interesante"],["We carried out a survey","Llevamos a cabo una encuesta"],["I came across an old photo","Me encontré con una foto antigua"],["I can't put up with this noise","No aguanto este ruido"],["We will look into the problem","Vamos a investigar el problema"],["Her design really stands out","Su diseño realmente destaca"]] },
+      { id: "c1u3l3", title: "Emociones con matices", icon: "🎨",
+        tip: "Para hablar de emociones con precisión: \"thrilled\" (encantadísima), \"devastated\" (destrozada), \"fed up\" (harta), \"over the moon\" (feliz de la vida).",
+        words: [["thrilled","encantado"],["devastated","destrozado"],["fed up","harto"],["over the moon","feliz de la vida"],["overwhelmed","abrumado"],["relieved","aliviado"],["frustrated","frustrado"],["grateful","agradecido"],["anxious","ansioso"],["heartbroken","con el corazón roto"]],
+        sentences: [["I was thrilled with the news","Estaba encantada con la noticia"],["She is fed up with her job","Está harta de su trabajo"],["We were over the moon about the baby","Estábamos felices de la vida con el bebé"],["I feel overwhelmed by all this work","Me siento abrumada con todo este trabajo"],["I'm so relieved it's over","Qué alivio que terminó"],["He was heartbroken after the breakup","Quedó con el corazón roto después de la ruptura"]] }
+    ]
+  },
+  {
+    unit: "Matices del idioma", level: "C2",
+    lessons: [
+      { id: "c2u1l1", title: "Subjuntivo en inglés", icon: "📜",
+        tip: "En inglés formal, después de \"suggest\", \"insist\", \"recommend\" o \"essential\" va el verbo en forma base para todas las personas: \"I suggest that he be on time\" (Sugiero que él sea puntual). \"It is essential that she attend\" (Es esencial que ella asista).",
+        words: [["insist","insistir"],["essential","esencial"],["vital","fundamental"],["demand","exigir"],["propose","proponer"],["be it","sea"],["so be it","que así sea"],["lest","no sea que"],["were it not for","de no ser por"],["urge","instar"]],
+        sentences: [["I suggest that he be on time","Sugiero que él sea puntual"],["It is essential that she attend the meeting","Es esencial que ella asista a la reunión"],["They insisted that we stay for dinner","Insistieron en que nos quedáramos a cenar"],["The doctor recommended that he rest","El doctor recomendó que descansara"],["Were it not for you, I would have failed","De no ser por ti, habría fracasado"],["If that's your decision, so be it","Si esa es tu decisión, que así sea"]] },
+      { id: "c2u1l2", title: "Deducción en el pasado", icon: "🕵️",
+        tip: "«Must have + participio» = seguro que pasó: \"She must have left\" (Seguro que se fue). \"Can't have\" = es imposible: \"He can't have seen me\" (No puede haberme visto). \"Might have\" = quizás pasó.",
+        words: [["must have","debe haber"],["can't have","no puede haber"],["might have","puede que haya"],["should have","debería haber"],["could have","podría haber"],["needn't have","no hacía falta"],["evidence","evidencia"],["conclude","concluir"],["obviously","obviamente"],["assume","suponer"]],
+        sentences: [["She must have left early","Seguro que se fue temprano"],["He can't have seen me, it was dark","No puede haberme visto, estaba oscuro"],["They might have missed the train","Puede que hayan perdido el tren"],["You should have told me before","Deberías habérmelo dicho antes"],["I needn't have worried","No hacía falta que me preocupara"],["We can assume the meeting was cancelled","Podemos suponer que la reunión se canceló"]] },
+      { id: "c2u1l3", title: "Respuestas cortas naturales", icon: "✂️",
+        tip: "El inglés natural evita repetir: \"I hope so\" (Espero que sí), \"I'm afraid not\" (Me temo que no), \"So do I\" (Yo también), \"Neither have I\" (Yo tampoco).",
+        words: [["I hope so","espero que sí"],["I'm afraid not","me temo que no"],["so do I","yo también"],["neither have I","yo tampoco"],["I suppose so","supongo que sí"],["if so","de ser así"],["if not","si no"],["the former","el primero"],["the latter","el segundo"],["likewise","igualmente"]],
+        sentences: [["Will it be ready? I hope so","¿Estará listo? Espero que sí"],["Can we change it? I'm afraid not","¿Lo podemos cambiar? Me temo que no"],["I love jazz. So do I","Me encanta el jazz. A mí también"],["I haven't been there. Neither have I","No he ido. Yo tampoco"],["Is it urgent? If so, call me","¿Es urgente? De ser así, llámame"],["Nice to meet you. Likewise","Un gusto conocerte. Igualmente"]] }
+    ]
+  },
+  {
+    unit: "Escritura profesional y académica", level: "C2",
+    lessons: [
+      { id: "c2u2l1", title: "Nominalización", icon: "🧱",
+        tip: "En textos formales se usan sustantivos en vez de verbos: \"We decided\" (Decidimos) → \"The decision was made\" (Se tomó la decisión). \"They improved a lot\" (Mejoraron mucho) → \"There was a significant improvement\" (Hubo una mejora importante).",
+        words: [["decision","decisión"],["improvement","mejora"],["implementation","implementación"],["analysis","análisis"],["increase","aumento"],["reduction","reducción"],["significant","significativo"],["assessment","evaluación"],["approval","aprobación"],["outcome","resultado"]],
+        sentences: [["The decision was made last week","La decisión se tomó la semana pasada"],["There was a significant improvement in sales","Hubo una mejora significativa en las ventas"],["The implementation will take six months","La implementación tomará seis meses"],["The analysis shows a clear increase","El análisis muestra un aumento claro"],["We are waiting for final approval","Estamos esperando la aprobación final"],["The outcome exceeded our expectations","El resultado superó nuestras expectativas"]] },
+      { id: "c2u2l2", title: "Marcadores del discurso", icon: "🧭",
+        tip: "Para textos elaborados: \"furthermore\" (además), \"hence\" (por ende), \"notwithstanding\" (no obstante), \"in light of\" (a la luz de), \"to put it simply\" (en pocas palabras).",
+        words: [["furthermore","además"],["hence","por ende"],["notwithstanding","no obstante"],["in light of","a la luz de"],["to put it simply","en pocas palabras"],["consequently","en consecuencia"],["thereby","de ese modo"],["in contrast","en cambio"],["on the whole","en general"],["by and large","en términos generales"]],
+        sentences: [["Furthermore, the costs are lower","Además, los costos son menores"],["The data is incomplete; hence, we need more time","Los datos están incompletos; por ende, necesitamos más tiempo"],["In light of these results, we changed the plan","A la luz de estos resultados, cambiamos el plan"],["To put it simply, it doesn't work","En pocas palabras, no funciona"],["On the whole, the project was a success","En general, el proyecto fue un éxito"],["By and large, people agree","En términos generales, la gente está de acuerdo"]] },
+      { id: "c2u2l3", title: "Argumentar y persuadir", icon: "🎤",
+        tip: "Para persuadir: \"It is worth noting that…\" (Vale la pena destacar que…), \"There is no doubt that…\" (No cabe duda de que…), \"One could argue that…\" (Se podría argumentar que…).",
+        words: [["worth noting","vale la pena destacar"],["no doubt","sin duda"],["one could argue","se podría argumentar"],["convincing","convincente"],["evidence","evidencia"],["counterargument","contraargumento"],["undeniable","innegable"],["compelling","contundente"],["persuade","persuadir"],["claim","afirmación"]],
+        sentences: [["It is worth noting that prices have doubled","Vale la pena destacar que los precios se duplicaron"],["There is no doubt that this is a priority","No cabe duda de que esto es una prioridad"],["One could argue that it is too late","Se podría argumentar que es demasiado tarde"],["The evidence is compelling","La evidencia es contundente"],["Her argument was very convincing","Su argumento fue muy convincente"],["Let's consider the counterargument","Consideremos el contraargumento"]] }
+    ]
+  },
+  {
+    unit: "Cultura y expresión", level: "C2",
+    lessons: [
+      { id: "c2u3l1", title: "Refranes", icon: "🦉",
+        tip: "Refranes y sus equivalentes: \"The early bird catches the worm\" (Al que madruga, Dios lo ayuda). \"Every cloud has a silver lining\" (No hay mal que por bien no venga). \"Actions speak louder than words\" (Obras son amores y no buenas razones).",
+        words: [["the early bird","al que madruga"],["silver lining","lado bueno"],["actions speak louder than words","obras son amores"],["when in Rome","donde fueres, haz lo que vieres"],["better late than never","más vale tarde que nunca"],["practice makes perfect","la práctica hace al maestro"],["easier said than done","del dicho al hecho hay mucho trecho"],["no pain, no gain","sin esfuerzo no hay recompensa"],["proverb","refrán"],["wisdom","sabiduría"]],
+        sentences: [["The early bird catches the worm","Al que madruga, Dios lo ayuda"],["Every cloud has a silver lining","No hay mal que por bien no venga"],["Better late than never","Más vale tarde que nunca"],["Practice makes perfect","La práctica hace al maestro"],["That's easier said than done","Del dicho al hecho hay mucho trecho"],["When in Rome, do as the Romans do","Donde fueres, haz lo que vieres"]] },
+      { id: "c2u3l2", title: "Ironía y atenuación", icon: "😏",
+        tip: "Los angloparlantes suelen minimizar: \"It's not bad at all\" (No está nada mal) puede querer decir «es excelente». \"That's a bit of a problem\" (Es un pequeño problema) puede ser un problemón. Y \"Oh, great!\" (¡Qué bien!) a veces es «¡Lo que faltaba!».",
+        words: [["not bad at all","nada de mal"],["a bit of a","un poco (en realidad, mucho)"],["oh, great","lo que faltaba"],["sarcasm","sarcasmo"],["irony","ironía"],["understatement","atenuación"],["tongue in cheek","en broma"],["dry humor","humor seco"],["I wouldn't say no","no diría que no"],["could be worse","podría ser peor"]],
+        sentences: [["The view from here is not bad at all","La vista desde aquí no está nada mal"],["We have a bit of a problem","Tenemos un problemita (en realidad, uno grande)"],["Oh, great, it's raining again","Ay, qué bien, otra vez lloviendo"],["He said it tongue in cheek","Lo dijo en broma"],["I wouldn't say no to a coffee","No diría que no a un café"],["It could be worse","Podría ser peor"]] },
+      { id: "c2u3l3", title: "Vocabulario sofisticado", icon: "💎",
+        tip: "Palabras para sonar como hablante avanzada: \"meticulous\" (meticuloso), \"ubiquitous\" (omnipresente), \"serendipity\" (casualidad afortunada), \"to epitomize\" (personificar, ser el mejor ejemplo de algo).",
+        words: [["meticulous","meticuloso"],["ubiquitous","omnipresente"],["serendipity","casualidad afortunada"],["epitomize","personificar"],["resilient","resiliente"],["eloquent","elocuente"],["ambiguous","ambiguo"],["pragmatic","pragmático"],["nuance","matiz"],["inevitable","inevitable"]],
+        sentences: [["She is meticulous about every detail","Ella es meticulosa con cada detalle"],["Smartphones are ubiquitous nowadays","Hoy en día los teléfonos están en todas partes"],["Meeting you was pure serendipity","Conocerte fue una casualidad afortunada"],["He gave an eloquent speech","Dio un discurso elocuente"],["The answer was deliberately ambiguous","La respuesta fue deliberadamente ambigua"],["Change is inevitable, so be resilient","El cambio es inevitable, así que sé resiliente"]] }
     ]
   }
 ];
@@ -606,7 +844,7 @@ const PRON = [
     phrases: [["Red roses are really romantic","Las rosas rojas son muy románticas"],["The rain in the morning","La lluvia en la mañana"],["Rachel reads every Friday","Rachel lee todos los viernes"],["I really like rice","Me gusta mucho el arroz"],
       ["Turn right at the river","Dobla a la derecha en el río"],["We arrived at the restaurant early","Llegamos temprano al restaurante"],["Are you ready for the trip?","¿Estás lista para el viaje?"],["The room is on the third floor","La habitación está en el tercer piso"],
       ["My friend runs every morning","Mi amiga corre todas las mañanas"],["I remember your brother","Me acuerdo de tu hermano"],["Can you repeat the price, please?","¿Puede repetir el precio, por favor?"],["Her car is red and very fast","Su auto es rojo y muy rápido"]] },
-  { id: "ed", title: "Pasado con -ED", icon: "⏪", tip: "Después de T o D suena \"id\" (wanted: quería). Después de P, K, SH, CH suena \"t\" (worked: trabajé). En los demás, \"d\" (played: jugué).",
+  { id: "ed", title: "Pasado con -ED", icon: "⏪", tip: "Después de T o D suena «id» (wanted: quería). Después de P, K, SH, CH suena «t» (worked: trabajé). En los demás, «d» (played: jugué).",
     phrases: [["I worked and walked all day","Trabajé y caminé todo el día"],["She wanted to visit Rome","Ella quería visitar Roma"],["We played and danced","Jugamos y bailamos"],["They watched a movie","Vieron una película"],
       ["I needed more time","Necesité más tiempo"],["He cooked dinner and washed the dishes","Él cocinó la cena y lavó los platos"],["We stayed at home and relaxed","Nos quedamos en casa y descansamos"],["She started a new job","Ella empezó un trabajo nuevo"],
       ["I called my mother yesterday","Llamé a mi mamá ayer"],["They decided to travel by bus","Decidieron viajar en bus"],["I helped my friend move","Ayudé a mi amiga a mudarse"],["The class finished at nine","La clase terminó a las nueve"]] },
@@ -614,15 +852,15 @@ const PRON = [
     phrases: [["Happy holidays to you","Felices fiestas para ti"],["He has a huge house","Él tiene una casa enorme"],["How are you, Helen?","¿Cómo estás, Helen?"],["I hope Henry is home","Espero que Henry esté en casa"],
       ["Can you help me, please?","¿Me puedes ayudar, por favor?"],["My head hurts a lot","Me duele mucho la cabeza"],["Her husband is from Holland","Su esposo es de Holanda"],["We had a hot lunch","Almorzamos algo caliente"],
       ["How much is this hat?","¿Cuánto cuesta este sombrero?"],["I am happy to be here","Estoy feliz de estar aquí"],["The hotel is behind the hospital","El hotel está detrás del hospital"],["Hold my hand","Toma mi mano"]] },
-  { id: "shch", title: "SH y CH", icon: "🤫", tip: "SH es suave y continuo, como \"shhh\". CH es corto, como en \"Chile\".",
+  { id: "shch", title: "SH y CH", icon: "🤫", tip: "SH es suave y continuo, como «shhh». CH es corto, como en «Chile».",
     phrases: [["She chose a cheap shirt","Ella eligió una camisa barata"],["Check the shop on the corner","Revisa la tienda de la esquina"],["Watch the show with me","Mira el programa conmigo"],["Shake hands with the chef","Dale la mano al chef"],
       ["I should wash my shoes","Debería lavar mis zapatos"],["The children eat chicken for lunch","Los niños comen pollo al almuerzo"],["Take a short shower","Date una ducha corta"],["Can I change my chair?","¿Puedo cambiar mi silla?"],
       ["She teaches English in March","Ella enseña inglés en marzo"],["I wish I had more cash","Ojalá tuviera más efectivo"],["Each kitchen has a dishwasher","Cada cocina tiene lavavajillas"],["Show me the chocolate, please","Muéstrame el chocolate, por favor"]] },
-  { id: "s", title: "S + consonante", icon: "🐍", tip: "No agregues una \"e\" al principio: di \"school\", no \"eschool\". Empieza directo con un sonido de serpiente: sss…",
+  { id: "s", title: "S + consonante", icon: "🐍", tip: "No agregues una «e» al principio: di \"school\", no «eschool». Empieza directo con un sonido de serpiente: sss…",
     phrases: [["I go to school by bus","Voy al colegio en bus"],["My sister studies in Spain","Mi hermana estudia en España"],["Please stop the car here","Por favor detén el auto aquí"],["The store is small","La tienda es pequeña"],
       ["I speak a little Spanish","Hablo un poco de español"],["Start the class at six","Empieza la clase a las seis"],["She is a smart student","Ella es una estudiante inteligente"],["The sky is full of stars","El cielo está lleno de estrellas"],
       ["We stayed at a nice hotel","Nos quedamos en un buen hotel"],["Sleep well and smile","Duerme bien y sonríe"],["Don't eat too many snacks","No comas demasiados snacks"],["Spring is my favorite season","La primavera es mi estación favorita"]] },
-  { id: "jy", title: "J y Y", icon: "🍯", tip: "La J inglesa suena como una \"ch\" que vibra (\"dj\"), como en \"jam\" (mermelada). La Y es suave, como la \"i\" de \"hielo\": \"yes\".",
+  { id: "jy", title: "J y Y", icon: "🍯", tip: "La J inglesa suena como una «ch» que vibra («dj»), como en \"jam\" (mermelada). La Y es suave, como la «i» de «hielo»: \"yes\".",
     phrases: [["Yes, I like jam","Sí, me gusta la mermelada"],["I got a new job in July","Conseguí un trabajo nuevo en julio"],["Your jacket is yellow","Tu chaqueta es amarilla"],["John is younger than me","John es menor que yo"],
       ["Enjoy your journey","Disfruta tu viaje"],["Have you eaten yet?","¿Ya comiste?"],["I drink orange juice every day","Tomo jugo de naranja todos los días"],["She just told me a joke","Ella me acaba de contar un chiste"],
       ["The year starts in January","El año empieza en enero"],["Did you join the gym?","¿Te inscribiste en el gimnasio?"],["I usually walk to the gym","Normalmente camino al gimnasio"],["Jake works in Japan","Jake trabaja en Japón"]] },
@@ -630,7 +868,7 @@ const PRON = [
     phrases: [["The black cat is sad","El gato negro está triste"],["I love my mother and my brother","Amo a mi mamá y a mi hermano"],["My car is in the park","Mi auto está en el parque"],["Can you pass me the map?","¿Me pasas el mapa?"],
       ["The bus is coming","La micro viene llegando"],["My father has a farm","Mi papá tiene una granja"],["Thanks for the lunch","Gracias por el almuerzo"],["The hat is in my bag","El sombrero está en mi bolso"],
       ["It's fun to run in the sun","Es divertido correr al sol"],["Let's walk to the market","Caminemos al mercado"],["My uncle is very funny","Mi tío es muy chistoso"],["Sam and Anna are happy","Sam y Anna están felices"]] },
-  { id: "es", title: "Finales -S y -ES", icon: "➕", tip: "Después de P, T, K, F suena \"s\" (cats). Después de sonidos suaves suena \"z\" (dogs). Después de S, Z, SH, CH suena \"iz\" (buses). ¡No te comas la S final!",
+  { id: "es", title: "Finales -S y -ES", icon: "➕", tip: "Después de P, T, K, F suena «s» (cats). Después de sonidos suaves suena «z» (dogs). Después de S, Z, SH, CH suena «iz» (buses). ¡No te comas la S final!",
     phrases: [["I have two cats and three dogs","Tengo dos gatos y tres perros"],["She works and lives in Lima","Ella trabaja y vive en Lima"],["The buses are very slow","Las micros son muy lentas"],["He watches movies on weekends","Él ve películas los fines de semana"],
       ["My friends like pizza","A mis amigos les gusta la pizza"],["She washes the dishes","Ella lava los platos"],["These books are cheap","Estos libros son baratos"],["He plays tennis on Mondays","Él juega tenis los lunes"],
       ["The classes start at eight","Las clases empiezan a las ocho"],["My mom makes great cakes","Mi mamá hace pasteles ricos"],["It costs ten dollars","Cuesta diez dólares"],["He goes to the gym twice a week","Él va al gimnasio dos veces por semana"]] },
