@@ -220,6 +220,36 @@ b{font-weight:600}
 .listening-txt{color:var(--accent);font-weight:600}
 .err{color:#a66d00;text-align:center;font-size:14px;background:var(--gold-soft);padding:12px;border-radius:16px}
 :root[data-theme="dark"] .err{color:var(--gold)}
+/* Análisis de pronunciación */
+.w-mid{color:#c58600} :root[data-theme="dark"] .w-mid{color:var(--gold)}
+.tw.w-mid{text-decoration:underline wavy var(--gold)}
+.round-btn.sm{width:32px;height:32px;font-size:15px}
+.score-tag.mid{background:var(--gold-soft);color:#b67a00;margin-left:4px} :root[data-theme="dark"] .score-tag.mid{color:var(--gold)}
+.pron-result.an .btn{margin-top:10px}
+.an-bars{margin:12px 0 2px;text-align:left}
+.an-bar{display:grid;grid-template-columns:92px 1fr 42px;align-items:center;gap:10px;font-size:13px}
+.an-bar .bar.thin{margin:6px 0}
+.an-bar b{text-align:right;font-size:13px}
+.an-actions .btn{padding:12px 10px;font-size:15px}
+.pron-result.an .an-hint{margin:12px 0 -2px;font-weight:600}
+.pron-result.an .an-hint+.btn{margin-top:8px}
+.an-detail{text-align:left;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.an-detail>p{margin:10px 0 0}
+.an-words{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
+.an-word{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:6px 11px;display:flex;flex-direction:column;align-items:center;min-width:56px;line-height:1.25}
+.an-word b{font-size:15px;font-weight:600}
+.an-word span{font-size:12px;font-weight:700}
+.an-word small{font-size:10px;color:var(--muted)}
+.an-word.good span{color:var(--ok)} .an-word.mid span{color:#c58600} .an-word.bad span{color:var(--bad)}
+:root[data-theme="dark"] .an-word.mid span{color:var(--gold)}
+.an-word.good{border-color:rgba(23,179,136,.35)} .an-word.mid{border-color:rgba(244,180,63,.5)} .an-word.bad{border-color:rgba(239,85,119,.45)}
+.an-word.on{background:var(--accent-soft);border-color:var(--accent)}
+.an-focus{background:var(--surface);border-radius:16px;padding:12px;border:1px solid var(--line)}
+.an-focus p{margin:8px 0 0}
+.an-focus .row.gap{margin-top:4px}
+.an-focus .btn{padding:11px 10px;font-size:14px}
+.an-fw{font-size:18px}
+.an-flu{background:var(--surface);border-radius:14px;padding:10px 12px}
 .phrase-list{display:grid;gap:8px}
 .phrase{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface);border-radius:16px;padding:13px 15px;text-align:left;box-shadow:var(--shadow);border:1.5px solid transparent}
 .phrase.on{border-color:var(--accent);background:var(--accent-soft)}

@@ -1,5 +1,5 @@
 /* Service worker: permite que la app funcione sin internet */
-const CACHE = 'fluenta-v11';
+const CACHE = 'fluenta-v12';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './data.js', './dict.json', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
