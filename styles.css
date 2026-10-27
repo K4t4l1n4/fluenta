@@ -393,6 +393,16 @@ body.focus .flash.write~form .btn{padding:13px 18px}
 .wfix-ok{background:var(--ok-soft);border-radius:14px;padding:10px 12px;margin-top:8px;line-height:1.6}
 .wfix-ok .label{color:var(--ok)}
 .wfix-perfect{margin:0;font-weight:600;color:var(--ok)}
+/* Corrección con Claude */
+.wfix-item .cl-note,.cl-note{color:var(--accent-ink);opacity:1;font-weight:600;margin-top:4px}
+.cl-review{margin-top:12px;background:var(--accent-soft);border-radius:18px;padding:12px 14px}
+.cl-review .label{color:var(--accent-ink)}
+.cl-review .wfix-item{border-color:rgba(var(--accent-rgb),.18)}
+.cl-steps{margin:10px 0 4px;padding-left:22px;line-height:1.55}
+.cl-steps li{margin-bottom:8px}
+.cl-in{margin:12px 0 14px;min-height:120px;font-size:14px}
+#sheet textarea{margin-top:8px;font-size:14px}
+a.btn{text-decoration:none}
 .as-btn{width:100%;text-align:left}
 
 /* ===== Palabras que se pueden tocar ===== */

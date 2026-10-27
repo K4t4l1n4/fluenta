@@ -537,7 +537,7 @@ function go(t) {
 function render() {
   rollover();
   document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar })[tab]();
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude })[tab]();
   if (tab === 'home') fillWod();
 }
 function renderNav() {
@@ -803,7 +803,10 @@ function mkFix(e) {
   const src = texts.find(t => t.text.toLowerCase().includes(e.wrong.toLowerCase()));
   const sentence = src ? (src.text.match(/[^.!?\n]+[.!?]?/g) || [src.text]).find(s => s.toLowerCase().includes(e.wrong.toLowerCase())).trim() : '';
   const at = sentence.toLowerCase().indexOf(e.wrong.toLowerCase());
-  const before = at >= 0 ? sentence.slice(0, at) : '', after = at >= 0 ? sentence.slice(at + e.wrong.length) : '';
+  /* Los otros errores de ese mismo texto ya van corregidos, para no practicar con una frase que tiene errores */
+  const others = src ? [...(src.errors || []), ...((src.claude && src.claude.errors) || [])].filter(x => x.wrong && x.right && x.wrong.toLowerCase() !== e.wrong.toLowerCase()) : [];
+  const fixCtx = s => others.reduce((acc, x) => acc.replace(new RegExp(`(^|[^A-Za-z'])${reEsc(x.wrong)}(?=[^A-Za-z']|$)`, 'i'), (m, p) => p + x.right), s);
+  const before = at >= 0 ? fixCtx(sentence.slice(0, at)) : '', after = at >= 0 ? fixCtx(sentence.slice(at + e.wrong.length)) : '';
   /* Tercera opción creíble: otra forma del mismo verbo (went → goes, likes → liking) */
   const r = e.right, base = DICT && /^[a-z]+$/i.test(r) ? baseOfForm(r.toLowerCase()) || (verbBase(r.toLowerCase()) ? r.toLowerCase() : null) : null;
   const variants = [base, base && thirdPerson(base), base && base.replace(/e$/, '') + 'ing', r.endsWith('s') ? r.slice(0, -1) : null];
@@ -1053,13 +1056,14 @@ function onDialogMic(r) {
 const colorWords = r => r.words.map(w => `<span class="tw ${w.pct != null ? (w.pct >= 85 ? 'w-ok' : w.pct >= 60 ? 'w-mid' : 'w-bad') : w.ok ? 'w-ok' : 'w-bad'}" data-act="word" data-w="${esc(w.w)}">${esc(w.w)}</span>`).join(' ');
 function pronHTML() {
   const cur = pronCurrent || PRON[0].phrases[0][0], curEs = PHRASE_ES.get(cur);
-  const weakN = weakPhrases(10).length;
+  const weakN = weakPhrases(10).length, clN = Math.min(10, claudeSentences().length);
   return `<div class="card practice"><div class="speaker-wrap"><button class="speaker-big" data-act="say" data-t="${esc(cur)}" aria-label="Escuchar">${ic('volume')}</button></div>
     <div class="practice-phrase">${pronResult && !pronResult.error ? colorWords(pronResult) : tapText(cur)}</div>${curEs ? `<p class="muted center">${esc(curEs)}</p>` : ''}${micControls(cur, 'pron')}
     <div id="micres">${pronResult ? voiceResultHTML(pronResult, 'pron') : '<p class="muted center small">Escucha, luego toca el micrófono y repite. Después puedes escuchar tu voz y ver el análisis de cada palabra.</p>'}</div>
     <form class="row gap" data-form="custom" style="margin-top:14px"><input name="phrase" placeholder="Escribe tu propia frase en inglés…" autocomplete="off" autocapitalize="off"><button class="btn ghost">Usar</button></form></div>
     <p class="muted small">ℹ️ Al hablar, la app graba tu voz para que te escuches y te compares con la voz modelo. Con <b>🔍 Analizar</b> ves el % de cada palabra: verde bien, amarillo casi, rojo a practicar. Con <b>▶ Sesión</b> practicas 10 frases seguidas y al final ves tu resumen. Toca cualquier palabra de la frase para ver qué significa.</p>
-    ${weakN >= 3 ? `<button class="card action-card" data-act="psession" data-g="weak"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Sesión de mis errores</b><small class="muted block">${weakN} frases con las palabras que más te cuestan</small></span>${ic('play', 'sm accent')}</button>` : ''}` +
+    ${weakN >= 3 ? `<button class="card action-card" data-act="psession" data-g="weak"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Sesión de mis errores</b><small class="muted block">${weakN} frases con las palabras que más te cuestan</small></span>${ic('play', 'sm accent')}</button>` : ''}
+    ${clN ? `<button class="card action-card" data-act="psession" data-g="claude"><span class="icon-bubble">✨</span><span class="grow"><b>Mis frases de Claude</b><small class="muted block">${clN} ${clN === 1 ? 'frase corregida' : 'frases corregidas'} por Claude</small></span>${ic('play', 'sm accent')}</button>` : ''}` +
     PRON.map(c => `<div class="row between pron-head"><h3>${c.icon} ${esc(c.title)}</h3><button class="add-btn" data-act="psession" data-g="${c.id}">▶ Sesión</button></div><p class="muted small">${esc(c.tip)}</p><div class="phrase-list">${c.phrases.map(([en, es]) =>
       `<button class="phrase ${en === cur ? 'on' : ''}" data-act="pphrase" data-t="${esc(en)}"><span class="grow">${esc(en)}<small class="muted block">${esc(es)}</small></span>${S.pron[en] != null ? `<span class="score-tag">${S.pron[en]}%</span>` : ''}</button>`).join('')}</div>`).join('');
 }
@@ -1087,6 +1091,9 @@ function startPronSession(gid) {
   if (gid === 'weak') {
     list = weakPhrases(10); title = 'Mis errores';
     if (list.length < 3) { toast('Aún no hay suficientes palabras difíciles. ¡Sigue practicando!'); return; }
+  } else if (gid === 'claude') {   /* tus frases corregidas por Claude, las más nuevas primero */
+    list = claudeSentences().slice(0, 10); title = '✨ Mis frases de Claude';
+    if (!list.length) { toast('Aún no tienes frases de Claude'); return; }
   } else {
     const g = PRON.find(c => c.id === gid); if (!g) return;
     list = shuffle(g.phrases).slice(0, 10); title = `${g.icon} ${g.title}`;
@@ -1247,7 +1254,7 @@ function dictHTML() {
   const custom = Object.values(S.cards).filter(c => c.custom);
   return `<button class="card action-card" data-act="dict"><span class="icon-bubble">${ic('dict')}</span><span class="grow"><b>Buscar en el diccionario</b><small class="muted block">En inglés o en español · ${DICT ? DICT.words.length.toLocaleString('es-CL') : 'más de 3.000'} palabras, también sin internet</small></span>${ic('play', 'sm accent')}</button>
     <section class="card"><h2>➕ Agregar palabra</h2><form data-form="addword" class="stack"><input name="en" placeholder="Palabra en inglés" required autocapitalize="off" autocomplete="off"><input name="es" placeholder="Traducción al español" required autocomplete="off"><button class="btn primary">Agregar a mis tarjetas</button></form></section>
-    ${custom.length ? `<section class="card"><h2>📝 Mis palabras (${custom.length})</h2>${custom.map(c => `<div class="word-row">${sayBtn(c.en, 'sm')}<div class="grow"><b>${tapText(c.en)}</b> <span class="muted">— ${esc(c.es)}</span></div><button class="icon-btn sm" data-act="delword" data-en="${esc(c.en)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</section>` : ''}`;
+    ${custom.length ? `<section class="card"><h2>📝 Mis palabras (${custom.length})</h2>${custom.map(c => `<div class="word-row">${sayBtn(c.en, 'sm')}<div class="grow"><b>${tapText(c.en)}</b> <span class="muted">— ${esc(c.es)}${c.claude ? ' · ✨' : ''}</span></div><button class="icon-btn sm" data-act="delword" data-en="${esc(c.en)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</section>` : ''}`;
 }
 
 /* ===== DICCIONARIO: más de 3.000 palabras sin internet, y Wiktionary como respaldo ===== */
@@ -1647,10 +1654,11 @@ async function checkWriting(text, question = '') {
   const local = DICT ? localWritingRules(text, pastQ) : [];
   let lt = [], online = true;
   try { lt = await languageTool(text); } catch (e) { online = false; }
-  /* Primero mis reglas (explican mejor en español); LanguageTool agrega lo que ellas no ven */
+  /* Primero lo que ya te corrigió Claude, luego mis reglas (explican mejor en español); LanguageTool agrega lo que ellas no ven */
+  const hits = claudeHits(text);
   const all = [], overlaps = a => all.some(b => a.off < b.off + b.len && b.off < a.off + a.len);
-  [...local, ...lt].forEach(e => { if (!overlaps(e)) all.push(e); });
-  return { errors: online || DICT ? all.sort((a, b) => a.off - b.off) : null, online };
+  [...hits, ...local, ...lt].forEach(e => { if (!overlaps(e)) all.push(e); });
+  return { errors: online || DICT || hits.length ? all.sort((a, b) => a.off - b.off) : null, online };
 }
 function correctedText(text, errors) {
   let out = text;
@@ -1666,7 +1674,7 @@ function fixHTML(m) {
   if (m.status === 'checking') return '<div class="wfix"><p class="muted small center">🔎 Revisando tu texto…</p></div>';
   if (!m.errors) return `<div class="wfix"><p class="err">⚠️ No pude revisar tu texto. Quedó guardado.</p><button class="btn ghost wide" data-act="wretry" data-k="${m.k}">Revisar otra vez</button></div>`;
   return `<div class="wfix">${m.errors.length ? `<div class="wfix-text">${markedHTML(m.text, m.errors)}</div>
-      ${m.errors.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}
+      ${m.errors.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div>${e.rule === 'CLAUDE' ? '<div class="small cl-note">✨ Claude ya te había corregido esto</div>' : ''}</div>`).join('')}
       <div class="wfix-ok"><span class="label">Texto corregido</span><div>${tapText(correctedText(m.text, m.errors))}</div></div>`
     : '<p class="wfix-perfect">✅ ¡Muy bien! No encontré errores.</p>'}
     ${m.online === false ? '<p class="muted small">📴 Sin internet revisé solo lo básico. Con conexión la corrección es más completa.</p>' : ''}</div>`;
@@ -1675,7 +1683,7 @@ function fixHTML(m) {
 function saveWriting(entry, errors, online) {
   const wr = S.writing || (S.writing = { texts: [], errs: {} });
   const key = e => `${e.wrong.toLowerCase()} → ${(e.right || '').toLowerCase()}`;
-  (entry.errors || []).forEach(e => { const it = wr.errs[key(e)]; if (it && --it.n <= 0) delete wr.errs[key(e)]; });
+  (entry.errors || []).forEach(e => { const it = wr.errs[key(e)]; if (it && --it.n <= 0 && !it.claude) delete wr.errs[key(e)]; });
   entry.errors = errors ? errors.map(({ wrong, right, type, es, rule }) => ({ wrong, right, type, es, rule })) : null;
   entry.partial = !!errors && online === false;
   if (!wr.texts.includes(entry)) wr.texts.push(entry);
@@ -1742,6 +1750,7 @@ function finishWrite() {
   const msgs = W.log.filter(m => m.who === 'me' && m.errors), errs = msgs.flatMap(m => m.errors);
   const words = msgs.reduce((a, m) => a + wordCount(m.text), 0), perfect = msgs.filter(m => !m.errors.length).length;
   const xp = msgs.length ? 5 : 0, t = W.topic;
+  const ids = W.log.filter(m => m.who === 'me').map(m => m.entry.t).join(',');
   if (xp) addXp(xp);
   W = null;
   if (!msgs.length) { go('write'); return; }
@@ -1749,26 +1758,36 @@ function finishWrite() {
     <div class="sum-stats"><div class="stat"><b>${msgs.length}</b><small>Respuestas</small></div><div class="stat"><b>${words}</b><small>Palabras</small></div><div class="stat"><b>${perfect}/${msgs.length}</b><small>Sin errores</small></div></div></div>
     ${errs.length ? `<section class="card"><h2>📝 Para repasar</h2>${errs.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}</section>`
       : '<section class="card center"><b>🌟 ¡No tuviste errores en este tema!</b></section>'}
-    <p class="muted small center">Tus errores quedaron en Progreso y en el archivo que exportas. Para una revisión más completa, exporta tu progreso y dile a Claude «revisa mi escritura».</p>
+    <section class="card"><h2>✨ ¿Una corrección más completa?</h2><p class="muted small">Copia lo que escribiste, pégalo en Claude y trae sus mejoras de vuelta a Fluenta.</p>
+      <button class="btn ghost wide" data-act="clcopy" data-ids="${ids}">📋 Copiar para Claude</button></section>
+    <p class="muted small center">Tus errores quedaron en Progreso y en el archivo que exportas.</p>
     <button class="btn primary wide" data-act="tab" data-tab="write">Continuar</button>`;
   celebrate();
 }
 function renderWriteTab() {
   const wr = S.writing || { texts: [], errs: {} }, texts = wr.texts || [];
   const words = texts.reduce((a, e) => a + (e.words || 0), 0), pending = texts.filter(e => !e.errors || e.partial).length;
+  const unrev = Math.min(12, texts.filter(e => !e.claude).length);
+  const tagHTML = errs => errs ? `<span class="score-tag ${errs.length ? 'bad' : 'good'}">${errs.length ? errs.length + ' ✗' : '✓'}</span>` : '<span class="score-tag">Sin revisar</span>';
   return topBar('Escribir', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
     <p class="muted small">Elige un tema y responde en inglés. La app corrige tu ortografía y tu gramática, y te explica cada error en español.</p>
     ${texts.length ? `<div class="stats"><div class="stat">📝<b>${texts.length}</b><small>Textos</small></div><div class="stat">🔤<b>${words}</b><small>Palabras</small></div><div class="stat">🎯<b>${Object.keys(wr.errs || {}).length}</b><small>Errores distintos</small></div></div>` : ''}
     <div class="grid2">${WRITE_TOPICS.map(t => `<button class="sec-card topic" data-act="write" data-id="${t.id}"><span class="topic-icon">${t.icon}</span><b>${esc(t.title)}</b><small>${t.id === 'free' ? 'Tú eliges el tema' : `${t.questions.length} preguntas`}</small></button>`).join('')}</div>
-    ${texts.length ? `<section class="card"><h2>🕘 Tus últimos textos</h2>${texts.slice(-8).reverse().map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return `<button class="word-row as-btn" data-act="wview" data-t="${e.t}"><span>${tp ? tp.icon : '✍️'}</span><div class="grow"><span class="small">${esc(e.text.length > 70 ? e.text.slice(0, 70) + '…' : e.text)}</span><span class="muted small block">${new Date(e.t).toLocaleDateString('es-CL')}${tp ? ' · ' + esc(tp.title) : ''}</span></div>${e.errors ? `<span class="score-tag ${e.errors.length ? 'bad' : 'good'}">${e.errors.length ? e.errors.length + ' ✗' : '✓'}</span>` : '<span class="score-tag">Sin revisar</span>'}</button>`; }).join('')}
-      ${pending ? `<button class="btn ghost wide" data-act="wpending">Revisar ${pending} ${pending === 1 ? 'texto pendiente' : 'textos pendientes'}</button>` : ''}</section>` : ''}
-    <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Para una corrección más completa, exporta tu progreso y dile a Claude «revisa mi escritura». Es gratis.</p></div></section>`;
+    <section class="card"><h2>✨ Corrección con Claude</h2>
+      <p class="muted small">Claude corrige mucho más que la app. Copia tus textos, pégalos en Claude y trae sus mejoras de vuelta: se vuelven lección, tarjetas y práctica de pronunciación.</p>
+      ${unrev ? `<button class="btn primary wide" data-act="clcopy" data-ids="new">📋 Copiar ${unrev === 1 ? 'tu último texto' : `tus ${unrev} textos nuevos`} para Claude</button>` : ''}
+      <button class="btn ghost wide" data-act="clpaste">📥 Pegar mejoras de Claude</button>
+      <button class="link" data-act="clhelp">¿Cómo configuro Claude?</button></section>
+    ${texts.length ? `<section class="card"><h2>🕘 Tus últimos textos</h2>${texts.slice(-8).reverse().map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return `<button class="word-row as-btn" data-act="wview" data-t="${e.t}"><span>${tp ? tp.icon : '✍️'}</span><div class="grow"><span class="small">${esc(e.text.length > 70 ? e.text.slice(0, 70) + '…' : e.text)}</span><span class="muted small block">${new Date(e.t).toLocaleDateString('es-CL')}${tp ? ' · ' + esc(tp.title) : ''}${e.claude ? ' · ✨ Claude' : ''}</span></div>${tagHTML(e.claude ? e.claude.errors : e.errors)}</button>`; }).join('')}
+      ${pending ? `<button class="btn ghost wide" data-act="wpending">Revisar ${pending} ${pending === 1 ? 'texto pendiente' : 'textos pendientes'}</button>` : ''}</section>` : ''}`;
 }
 function viewWriting(t) {
   const e = ((S.writing || {}).texts || []).find(x => String(x.t) === String(t)); if (!e) return;
-  const tp = WRITE_TOPICS.find(x => x.id === e.topic);
+  const tp = WRITE_TOPICS.find(x => x.id === e.topic), claudeFound = e.claude && e.claude.errors.length;   /* si Claude encontró errores, no se muestra el «¡Muy bien!» de la app */
   openSheet(`<div class="sheet-top"><b class="grow">${tp ? tp.icon + ' ' + esc(tp.title) : '✍️ Texto'}</b><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div>
-    ${e.q ? `<p class="muted small">${tapText(e.q)}</p>` : ''}<div class="bubble me wr" style="max-width:100%">${esc(e.text)}</div>${fixHTML({ text: e.text, errors: e.errors, status: 'done', k: -1 })}`, 'word');
+    ${e.q ? `<p class="muted small">${tapText(e.q)}</p>` : ''}<div class="bubble me wr" style="max-width:100%">${esc(e.text)}</div>${claudeFound && e.errors && !e.errors.length ? '' : fixHTML({ text: e.text, errors: e.errors, status: 'done', k: -1 })}
+    ${e.claude ? `<div class="cl-review"><span class="label">✨ Revisado por Claude · ${new Date(e.claude.t).toLocaleDateString('es-CL')}</span>${e.claude.errors.length ? e.claude.errors.map(wfixItemHTML).join('') : '<p class="wfix-perfect">✅ Claude no encontró errores en este texto.</p>'}</div>` : ''}
+    <button class="btn ghost wide" data-act="clcopy" data-ids="${e.t}">📋 Copiar para Claude</button>`, 'word');
   SHEET.word = '';
 }
 async function reviewPending() {
@@ -1779,6 +1798,192 @@ async function reviewPending() {
   for (const e of list) { const r = await checkWriting(e.text, e.q); if (!r.online) continue; saveWriting(e, r.errors, true); ok++; }
   toast(ok ? `✅ Revisé ${ok} ${ok === 1 ? 'texto' : 'textos'}` : '📴 Necesitas internet para revisar');
   if (tab === 'write' && !W) render();
+}
+
+/* ===== Corrección con Claude: copias tus textos, Claude te corrige y pegas sus mejoras =====
+   La app no se conecta a tu cuenta: tú copias y pegas. Las mejoras vuelven como un bloque JSON. */
+const CLAUDE_RULES = [
+  'Eres mi profesor de inglés. Hablo español (de Chile) y estoy aprendiendo inglés con mi app Fluenta. Te voy a pegar textos que escribí en inglés.',
+  '',
+  'Para cada texto:',
+  '1. Explícame en español cada error: lo que escribí, cómo va bien y por qué, con palabras simples.',
+  '2. Muéstrame el texto corregido y una versión más natural, como lo diría alguien nativo.',
+  '3. Si no tiene errores, dímelo y dame igual una versión más natural.',
+  '',
+  'Al final de tu respuesta agrega siempre un bloque de código json con el título «Para Fluenta», para copiarlo y pegarlo en mi app. Usa exactamente este formato:',
+  '```json',
+  '{"app":"fluenta","kind":"claude","v":1,"texts":["id"],"errors":[{"wrong":"","right":"","type":"","es":"","always":false}],"sentences":[["inglés","español"]],"words":[["inglés","español"]],"tip":""}',
+  '```',
+  'Reglas del bloque:',
+  '- texts: los id de los textos que revisaste (van entre corchetes antes de cada texto, por ejemplo [lq3x9a]).',
+  '- errors: un objeto por error. wrong: copia exacto lo que yo escribí, solo la palabra o las pocas palabras con el error. right: cómo va bien (vacío si hay que quitarlo). type: Gramática, Ortografía, Vocabulario, Puntuación, Mayúsculas o Expresión. es: la explicación en español, en una o dos frases cortas. always: true solo si eso está mal en cualquier frase (por ejemplo una palabra mal escrita o "more better"); false si depende de la frase.',
+  '- sentences: hasta 8 frases en inglés, corregidas o más naturales, basadas en lo que escribí, con su traducción.',
+  '- words: hasta 8 palabras o expresiones nuevas que me sirvan para estos temas, con su traducción.',
+  '- tip: un consejo corto en español para mi próximo texto.',
+  '- Solo JSON válido: comillas dobles, sin comentarios y sin texto extra dentro del bloque.'
+].join('\n');
+const textId = e => e.t.toString(36);
+const sheetHead = t => `<div class="sheet-top"><b class="grow">${t}</b><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div>`;
+const wfixItemHTML = e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`;
+const claudeSentences = () => uniqBy(S.packs.filter(p => p.claude).flatMap(p => p.sentences), s => s[0].toLowerCase()).filter(s => tokens(s[0]).length <= 14);
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  /* Respaldo para navegadores sin acceso al portapapeles */
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.readOnly = true; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove(); return ok;
+}
+/* "new" = los textos que Claude aún no revisa; si no, los textos con esas fechas (t) */
+function claudeTexts(ids) {
+  const texts = (S.writing && S.writing.texts) || [];
+  if (ids === 'new') return texts.filter(e => !e.claude).slice(-12);
+  const set = new Set(String(ids).split(','));
+  return texts.filter(e => set.has(String(e.t)));
+}
+function claudeCopyText(list) {
+  return CLAUDE_RULES + '\n\nMis textos:\n\n' + list.map(e => {
+    const tp = WRITE_TOPICS.find(x => x.id === e.topic);
+    return `[${textId(e)}] Tema: ${tp ? tp.title : 'Libre'}${e.q ? `\nPregunta: ${e.q}` : ''}\nMi respuesta: ${e.text}`;
+  }).join('\n\n');
+}
+async function copyForClaude(ids) {
+  const list = claudeTexts(ids);
+  if (!list.length) { toast('No hay textos para copiar'); return; }
+  const text = claudeCopyText(list);
+  if (!(await copyText(text))) {
+    openSheet(`${sheetHead('📋 Copia este texto')}<p class="muted small">Mantén presionado el cuadro, elige «Seleccionar todo» y luego «Copiar».</p><textarea readonly rows="8">${esc(text)}</textarea>`, 'claude');
+    return;
+  }
+  openSheet(`${sheetHead('📋 ¡Copiado!')}<p>Copié ${list.length === 1 ? 'tu texto' : `tus ${list.length} textos`} con las instrucciones para Claude.</p>
+    <ol class="cl-steps"><li>Abre Claude y pégalo en un chat nuevo (o dentro de tu proyecto «Fluenta · Profesor»).</li><li>Al final de su respuesta, toca <b>Copiar</b> en el bloque «Para Fluenta».</li><li>Vuelve aquí y toca <b>📥 Pegar mejoras de Claude</b>.</li></ol>
+    <a class="btn primary wide" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir Claude</a>
+    <button class="btn ghost wide" data-act="clpaste">📥 Ya tengo las mejoras</button>`, 'claude');
+}
+function claudeHelp() {
+  openSheet(`${sheetHead('✨ Cómo configuro Claude')}
+    <p class="muted small">Se hace una sola vez: creas un proyecto en Claude con las instrucciones de Fluenta. Así tus correcciones quedan juntas y Claude siempre te responde igual.</p>
+    <ol class="cl-steps"><li>En Claude, entra a <b>Proyectos</b> y crea uno nuevo llamado <b>Fluenta · Profesor</b>.</li>
+      <li>Toca el botón de abajo y pega el texto en las <b>instrucciones del proyecto</b>.</li>
+      <li>Cuando quieras corregir, toca <b>📋 Copiar para Claude</b> aquí y pégalo en un chat nuevo del proyecto.</li>
+      <li>Claude te corrige y al final te da el bloque <b>«Para Fluenta»</b>. Cópialo y tráelo con <b>📥 Pegar mejoras de Claude</b>.</li></ol>
+    <button class="btn primary wide" data-act="clproj">📋 Copiar instrucciones del proyecto</button>
+    <a class="btn ghost wide" href="https://claude.ai/projects" target="_blank" rel="noopener">Abrir Claude</a>
+    <p class="muted small" style="margin-top:12px">Si no quieres crear el proyecto, igual funciona: lo que copias desde Fluenta ya trae las instrucciones. Usa tu plan de Claude, sin costo extra.</p>`, 'claude');
+}
+/* Busca el bloque «Para Fluenta» aunque pegues la respuesta completa de Claude */
+function parseClaude(raw) {
+  const s = String(raw || '');
+  const blocks = [...s.matchAll(/```[a-z]*\s*([\s\S]*?)```/gi)].map(m => m[1]).filter(x => /fluenta/.test(x));
+  const a = s.search(/\{\s*"app"/), b = s.lastIndexOf('}'), f = s.indexOf('{');
+  const tries = [...blocks, a >= 0 && b > a ? s.slice(a, b + 1) : '', f >= 0 && b > f ? s.slice(f, b + 1) : ''].filter(Boolean);
+  let d = null;
+  for (const t of [...tries, ...tries.map(t => t.replace(/[“”]/g, '"'))]) { try { d = JSON.parse(t); break; } catch (e) {} }
+  if (!d || typeof d !== 'object') return null;
+  if (d.app === 'fluenta' && d.kind === 'pack') return { pack: d };   /* un refuerzo de lección también sirve */
+  const str = (v, n) => typeof v === 'string' ? v.trim().slice(0, n) : '';
+  const pairs = (v, n) => validPairs(v).slice(0, n).map(([en, es]) => [en.slice(0, 200), es.slice(0, 200)]);
+  const errors = (Array.isArray(d.errors) ? d.errors : []).filter(e => e && typeof e === 'object')
+    .map(e => ({ wrong: str(e.wrong, 80), right: str(e.right, 120), type: str(e.type, 24) || 'Revisa', es: str(e.es, 300) || 'Claude lo corrigió así.', always: typeof e.always === 'boolean' ? e.always : undefined }))
+    .filter(e => e.wrong && e.wrong !== e.right);
+  const out = {
+    errors: uniqBy(errors, e => `${e.wrong.toLowerCase()} → ${e.right.toLowerCase()}`), sentences: pairs(d.sentences, 12), words: pairs(d.words, 12),
+    texts: (Array.isArray(d.texts) ? d.texts : []).map(x => String(x).replace(/[^a-z0-9]/gi, '').toLowerCase()).filter(Boolean), tip: str(d.tip, 400)
+  };
+  return out.errors.length || out.sentences.length || out.words.length || out.texts.length ? out : null;
+}
+const claudeCards = d => [...d.words, ...d.sentences.filter(s => tokens(s[0]).length <= 6)].filter(([en]) => !S.cards[en]);
+/* Guarda las mejoras: errores → Mis errores y Progreso; frases y palabras → lección, tarjetas y pronunciación */
+function applyClaude(d, toCards) {
+  const wr = S.writing || (S.writing = { texts: [], errs: {} }), now = Date.now();
+  const key = e => `${e.wrong.toLowerCase()} → ${e.right.toLowerCase()}`;
+  d.errors.forEach(e => {
+    const it = wr.errs[key(e)];
+    /* Si la app ya lo había encontrado, se queda con la explicación de Claude (sin contarlo dos veces) */
+    if (it) Object.assign(it, { type: e.type, es: e.es, claude: true }, e.always != null ? { always: e.always } : {});
+    else wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, n: 1, last: now, claude: true, always: e.always };
+  });
+  /* Textos revisados: los que Claude nombró; si no los nombró, los recientes donde aparece algún error */
+  const ids = new Set(d.texts), listed = wr.texts.filter(t => ids.has(textId(t)));
+  let marked = 0;
+  (listed.length ? listed : wr.texts.slice(-15)).forEach(t => {
+    const errs = d.errors.filter(e => t.text.toLowerCase().includes(e.wrong.toLowerCase()));
+    if (!listed.includes(t) && !errs.length) return;
+    t.claude = { t: now, errors: errs.map(({ wrong, right, type, es }) => ({ wrong, right, type, es })) }; marked++;
+  });
+  /* Lección con tus frases corregidas, palabras nuevas y tus errores para corregir */
+  const fixes = d.errors.filter(e => e.right && e.wrong.toLowerCase() !== e.right.toLowerCase()).slice(0, 6).map(e => ({ key: key(e), wrong: e.wrong, right: e.right, es: e.es }));
+  let pack = null;
+  if (d.sentences.length || d.words.length || fixes.length) {
+    pack = { id: 'pack-claude-' + hash(JSON.stringify([d.errors, d.sentences, d.words])).toString(36), title: 'Mejoras de Claude', icon: '✨',
+      note: [new Date(now).toLocaleDateString('es-CL'), d.sentences.length && `${d.sentences.length} frases`, d.words.length && `${d.words.length} palabras`, fixes.length && `${fixes.length} errores`].filter(Boolean).join(' · '), words: d.words, sentences: d.sentences, fixes, focus: true, claude: true,
+      tip: d.tip || 'Esta lección se armó con lo que te corrigió Claude: tus frases corregidas, palabras nuevas y tus errores para que los corrijas tú.' };
+    S.packs = S.packs.filter(p => p.id !== pack.id); S.packs.unshift(pack);
+    const old = S.packs.filter(p => p.claude).slice(8); S.packs = S.packs.filter(p => !old.includes(p));
+  }
+  let cards = 0;
+  if (toCards) claudeCards(d).forEach(([en, es]) => { S.cards[en] = { en, es, box: 1, due: 0, custom: true, claude: true }; cards++; });
+  save();
+  return { errors: d.errors.length, sentences: d.sentences.length, words: d.words.length, texts: marked, pack, cards, tip: d.tip };
+}
+const newCL = () => ({ draft: '', data: null, cards: true });
+let CL = newCL();
+function renderClaude() {
+  return topBar('Mejoras de Claude', `<button class="icon-btn" data-act="tab" data-tab="write" aria-label="Cerrar">${ic('x')}</button>`) + `
+    <p class="muted small">En Claude, toca <b>Copiar</b> en el bloque «Para Fluenta» y pégalo aquí. La app guarda tus errores y arma una lección, tarjetas y práctica de pronunciación con tus frases.</p>
+    <button class="btn primary wide" data-act="clread">📋 Pegar lo que copiaste</button>
+    <textarea id="clIn" class="cl-in" rows="5" placeholder="…o mantén presionado aquí y elige «Pegar»" autocorrect="off" autocapitalize="off" spellcheck="false" autocomplete="off">${esc(CL.draft)}</textarea>
+    <div id="clPrev">${claudePreviewHTML()}</div>
+    <button class="link" data-act="clhelp">¿Cómo configuro Claude?</button>`;
+}
+function claudePreviewHTML() {
+  const d = CL.data;
+  if (!d) return CL.draft.trim() ? '<p class="err">⚠️ No encuentro el bloque «Para Fluenta». Copia el bloque completo, desde la primera { hasta la última }.</p>' : '';
+  if (d.pack) return `<section class="card"><b>✨ Encontré un refuerzo de lección</b><p class="muted small">${esc(d.pack.title || 'Refuerzo de Claude')}</p><button class="btn primary wide" data-act="clsave">Guardar refuerzo</button></section>`;
+  const n = claudeCards(d).length, num = (v, one, many) => `<b>${v}</b> ${v === 1 ? one : many}`;
+  return `<section class="card"><span class="label">Encontré</span>
+    <p>${[num(d.errors.length, 'error', 'errores'), num(d.sentences.length, 'frase', 'frases'), num(d.words.length, 'palabra', 'palabras')].join(' · ')}</p>
+    ${d.errors.slice(0, 3).map(wfixItemHTML).join('')}${d.errors.length > 3 ? `<p class="muted small">…y ${d.errors.length - 3} más.</p>` : ''}
+    ${n ? `<div class="field">Agregar a mis tarjetas (${n} ${n === 1 ? 'nueva' : 'nuevas'})<div class="seg mini"><button class="${CL.cards ? 'on' : ''}" data-act="clcards" data-v="1">🃏 Sí</button><button class="${CL.cards ? '' : 'on'}" data-act="clcards" data-v="0">No</button></div></div>` : ''}
+    <button class="btn primary wide" data-act="clsave">✨ Guardar mejoras</button></section>`;
+}
+function claudeDone(r) {
+  addXp(5);
+  const row = (i, html) => `<div class="word-row"><span>${i}</span><div class="grow small">${html}</div></div>`;
+  view().innerHTML = `<div class="summary"><div class="emoji">✨</div><h1>¡Mejoras guardadas!</h1>
+    <div class="sum-stats"><div class="stat"><b>${r.errors}</b><small>Errores</small></div><div class="stat"><b>${r.sentences}</b><small>Frases</small></div><div class="stat"><b>${r.words}</b><small>Palabras</small></div></div></div>
+    <section class="card"><h2>📍 Dónde quedaron</h2>
+      ${r.errors ? row('🎯', 'Tus errores, en <b>Mis errores</b> y en Progreso. Si los repites al escribir, la app te avisa al tiro.') : ''}
+      ${r.pack ? row('📚', `Una lección nueva, <b>${esc(r.pack.title)}</b>, en Lecciones › Para ti.`) : ''}
+      ${r.cards ? row('🃏', `${r.cards} ${r.cards === 1 ? 'tarjeta nueva' : 'tarjetas nuevas'} para repasar.`) : ''}
+      ${r.sentences ? row('🎙️', 'Tus frases corregidas, para decirlas en voz alta en Pronunciación.') : ''}
+      ${r.texts ? row('✍️', `${r.texts} ${r.texts === 1 ? 'texto quedó marcado' : 'textos quedaron marcados'} como revisados por Claude.`) : ''}</section>
+    ${r.tip ? `<div class="card tip-card"><span class="label">💡 Consejo de Claude</span><p>${tipHTML(r.tip)}</p></div>` : ''}
+    ${r.pack ? `<button class="btn primary wide" data-act="lesson" data-id="${esc(r.pack.id)}">📚 Hacer la lección</button>` : ''}
+    ${claudeSentences().length ? '<button class="btn ghost wide" data-act="psession" data-g="claude">🎙️ Practicar en voz alta</button>' : ''}
+    <button class="btn ghost wide" data-act="tab" data-tab="write">Volver a Escribir</button>`;
+  window.scrollTo(0, 0); celebrate();
+}
+/* Errores que Claude ya te corrigió: se marcan al tiro al escribir, incluso sin internet.
+   Solo los que están mal en cualquier frase (Claude lo indica con "always"), o palabras que no existen. */
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function claudeHits(text) {
+  const out = [];
+  Object.values((S.writing && S.writing.errs) || {}).forEach(it => {
+    if (!it.claude || !it.wrong) return;
+    const sure = it.always === true || (it.always == null && DICT && /^[a-z']+$/i.test(it.wrong) && !lookup(it.wrong));
+    if (!sure) return;
+    const caseOnly = it.wrong.toLowerCase() === (it.right || '').toLowerCase();
+    const re = new RegExp(`(^|[^A-Za-z'])(${reEsc(it.wrong)})(?=[^A-Za-z']|$)`, caseOnly ? 'g' : 'gi');
+    let m;
+    while ((m = re.exec(text))) {
+      const off = m.index + m[1].length, wrong = m[2];
+      const right = !caseOnly && /^[A-Z]/.test(wrong) && it.right ? it.right[0].toUpperCase() + it.right.slice(1) : it.right;
+      out.push({ off, len: wrong.length, wrong, right, type: it.type, es: it.es, rule: 'CLAUDE' });
+    }
+  });
+  return out;
 }
 
 /* ===== ESTADÍSTICAS ===== */
@@ -1839,7 +2044,7 @@ function renderStats() {
   ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.n ? `${Math.round(p.sum / p.n)}% · ` : ''}${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
   ${ps.length ? `<section class="card"><h2>🎙️ Sesiones de pronunciación</h2><p class="muted small">${ps.length} ${ps.length === 1 ? 'sesión' : 'sesiones'} · promedio ${pct(ps.reduce((a, s) => a + s.avg, 0), ps.length * 100)}%</p>${ps.slice(-4).reverse().map(s => `<div class="word-row"><div class="grow"><span>${esc(s.group)}</span><span class="muted small block">${new Date(s.t).toLocaleDateString('es-CL')} · ${s.done}/${s.n} frases</span></div><span class="score-tag ${s.avg >= 70 ? 'good' : 'bad'}">${s.avg}%</span></div>`).join('')}</section>` : ''}
   ${wTexts.length ? `<section class="card"><h2>✍️ Escritura</h2><p class="muted small">${wTexts.length} ${wTexts.length === 1 ? 'texto' : 'textos'} · ${wTexts.reduce((a, e) => a + (e.words || 0), 0)} palabras · ${wTexts.filter(e => e.errors && !e.errors.length).length} sin errores</p>
-    ${wErr.length ? `<span class="label">Tus errores más frecuentes</span>${wErr.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)} · ${e.n}×</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}` : '<p class="muted small">¡Aún no hay errores de escritura! 🌟</p>'}
+    ${wErr.length ? `<span class="label">Tus errores más frecuentes</span>${wErr.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)} · ${e.n}×${e.claude ? ' · ✨ Claude' : ''}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}` : '<p class="muted small">¡Aún no hay errores de escritura! 🌟</p>'}
     <button class="btn ghost wide" data-act="tab" data-tab="write">✍️ Seguir escribiendo</button></section>` : ''}
   ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id), es = optionEs(d, x.en); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span>${es ? `<span class="muted small block">${esc(es)}</span>` : ''}<span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
   <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Exporta tu progreso, guárdalo en tu PC en <b>APP 2.0\\progreso</b> y dile a Claude "revisa mi progreso".</p></div></section>
@@ -1863,8 +2068,8 @@ function buildSummary() {
       const wr = S.writing || { texts: [], errs: {} };
       return {
         textos: wr.texts.length, palabras: wr.texts.reduce((a, e) => a + (e.words || 0), 0),
-        errores_frecuentes: Object.values(wr.errs).sort((a, b) => b.n - a.n).slice(0, 25).map(e => ({ error: e.wrong, correcto: e.right, tipo: e.type, explicacion: e.es, veces: e.n })),
-        ultimos_textos: wr.texts.slice(-15).map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return { fecha: dayStr(new Date(e.t)), tema: tp ? tp.title : e.topic, pregunta: e.q, texto: e.text, revisado: e.errors ? (e.partial ? 'solo lo básico (sin internet)' : 'sí') : 'no', errores: (e.errors || []).map(x => ({ error: x.wrong, correcto: x.right, explicacion: x.es })) }; })
+        errores_frecuentes: Object.values(wr.errs).sort((a, b) => b.n - a.n).slice(0, 25).map(e => ({ error: e.wrong, correcto: e.right, tipo: e.type, explicacion: e.es, veces: e.n, de_claude: e.claude || undefined })),
+        ultimos_textos: wr.texts.slice(-15).map(e => { const tp = WRITE_TOPICS.find(x => x.id === e.topic); return { fecha: dayStr(new Date(e.t)), tema: tp ? tp.title : e.topic, pregunta: e.q, texto: e.text, revisado: e.errors ? (e.partial ? 'solo lo básico (sin internet)' : 'sí') : 'no', revisado_por_claude: e.claude ? 'sí' : 'no', errores: (e.errors || []).map(x => ({ error: x.wrong, correcto: x.right, explicacion: x.es })), errores_claude: e.claude ? e.claude.errors.map(x => ({ error: x.wrong, correcto: x.right, explicacion: x.es })) : undefined }; })
       };
     })(),
     tarjetas: { total: Object.keys(S.cards).length, por_caja: [1, 2, 3, 4, 5].map(b => Object.values(S.cards).filter(c => c.box === b).length) }
@@ -1939,7 +2144,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.2 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.3 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -2063,6 +2268,22 @@ const ACTIONS = {
   },
   wview: el => viewWriting(el.dataset.t),
   wpending: () => reviewPending(),
+  clcopy: el => copyForClaude(el.dataset.ids),
+  clpaste: () => go('claude'),
+  clhelp: () => claudeHelp(),
+  clproj: async () => toast((await copyText(CLAUDE_RULES)) ? '📋 Instrucciones copiadas. Pégalas en tu proyecto de Claude.' : '⚠️ No pude copiar'),
+  clread: async () => {
+    let t = '';
+    try { t = await navigator.clipboard.readText(); } catch (e) {}
+    if (!t.trim()) { toast('Mantén presionado el cuadro y elige «Pegar»'); return; }
+    CL.draft = t; CL.data = parseClaude(t); render();
+  },
+  clcards: el => { CL.cards = el.dataset.v === '1'; const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); },
+  clsave: () => {
+    const d = CL.data, cards = CL.cards; if (!d) return;
+    CL = newCL();
+    if (d.pack) importText(JSON.stringify(d.pack)); else claudeDone(applyClaude(d, cards));
+  },
   word: el => openWord(el.dataset.w),
   dict: () => openSearch(),
   sheetclose: () => closeSheet(),
@@ -2117,6 +2338,7 @@ document.addEventListener('input', e => {
   else if (t.id === 'dictInput' && L) { L.typed = t.value; const b = $('#view [data-act="check"]'); if (b) b.disabled = !t.value.trim(); }
   else if (t.id === 'cardInput' && F) { F.typed = t.value; }
   else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
+  else if (t.id === 'clIn') { CL.draft = t.value; CL.data = parseClaude(t.value); const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
   else if (t.id === 'setAccent') { S.accent = t.value; applyTheme(); }   /* se ve al instante mientras eliges */
