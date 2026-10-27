@@ -293,6 +293,14 @@ b{font-weight:600}
 .flash{perspective:1000px;margin:16px 0 18px;display:block;width:100%}
 .flash-inner{position:relative;height:300px;transition:transform .5s;transform-style:preserve-3d}
 .flash.flipped .flash-inner{transform:rotateY(180deg)}
+/* Modo escribir: tarjeta más baja para que la palabra, el cuadro y los botones quepan sobre el teclado */
+.flash.write{margin:8px 0 14px}
+.flash.write .flash-inner{height:150px}
+.flash.write .face{gap:6px;padding:14px 56px;border-radius:26px}
+.flash.write .face b{font-size:28px;line-height:1.15}
+.flash.write .face b.long{font-size:19px}
+.flash.write .face-say{position:absolute;top:12px;right:12px}
+body.focus .flash.write~form .btn{padding:13px 18px}
 .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--surface);box-shadow:var(--shadow-lg);border-radius:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center}
 .face.back{transform:rotateY(180deg);background:var(--hero);color:#fff}
 .face.back .label{color:rgba(255,255,255,.8)}

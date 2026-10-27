@@ -1177,7 +1177,19 @@ function startReview(all) {
   F = { queue: q, i: 0, flip: false, unique: q.length, firstRight: 0, failed: new Set(), typed: '', result: null, close: false,
     dirOf: Object.fromEntries(q.map(en => [en, dir === 'mix' ? pick(['en', 'es']) : dir])) };
   document.body.classList.add('focus'); window.scrollTo(0, 0); render();
-  if (S.cardWrite) { const i = $('#cardInput'); if (i) i.focus(); }
+  if (S.cardWrite) focusCardInput();
+}
+/* Al abrirse el teclado, el iPhone sube la pantalla y la palabra quedaba escondida: se vuelve arriba */
+function focusCardInput() {
+  const i = $('#cardInput'); if (!i) return;
+  try { i.focus({ preventScroll: true }); } catch (e) { i.focus(); }
+  const top = () => { if (document.activeElement === i) window.scrollTo(0, 0); };
+  [60, 300, 600].forEach(ms => setTimeout(top, ms));
+  if (window.visualViewport) {
+    const onResize = () => top();
+    visualViewport.addEventListener('resize', onResize);
+    setTimeout(() => visualViewport.removeEventListener('resize', onResize), 1200);
+  }
 }
 function reviewHTML() {
   const en = F.queue[F.i], c = S.cards[en], again = F.failed.has(en), d = F.dirOf[en] || 'en', write = !!S.cardWrite;
@@ -1192,11 +1204,11 @@ function reviewHTML() {
     : (F.flip ? `<div class="rate-row"><button class="btn no" data-act="rate" data-v="0">😕 No la sabía</button><button class="btn yes" data-act="rate" data-v="1">😎 La sabía</button></div>` : '<p class="muted center small">¿Recuerdas la respuesta? Piénsala y voltea la tarjeta.</p>');
   return `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="bar grow"><i style="width:${pct(F.i, F.queue.length)}%"></i></div><span class="muted small">${F.queue.length - F.i} restantes</span></div>
     ${again ? '<p class="center"><span class="retry-tag">🔁 Esta la fallaste: ¡otra vez!</span></p>' : ''}
-    <button class="flash ${F.flip ? 'flipped' : ''}" ${write ? '' : 'data-act="flip"'}><div class="flash-inner">
-      <div class="face"><span class="label">${d === 'en' ? 'Inglés' : 'Español'}</span><b>${esc(front)}</b><span class="muted small">${write ? (d === 'en' ? '¿Qué significa?' : '¿Cómo se dice en inglés?') : 'Toca para ver la respuesta'}</span></div>
-      <div class="face back"><span class="label">${d === 'en' ? 'Español' : 'Inglés'}</span><b>${show(back, d === 'es')}</b><span>${show(front, d === 'en')}</span></div>
-    </div></button>
-    <div class="row" style="justify-content:center;margin-bottom:16px">${d === 'en' || F.flip ? sayBtn(c.en, 'lg') : ''}</div>
+    <${write ? 'div' : 'button'} class="flash ${write ? 'write' : ''} ${F.flip ? 'flipped' : ''}" ${write ? '' : 'data-act="flip"'}><div class="flash-inner">
+      <div class="face">${write && d === 'en' ? `<span class="face-say">${sayBtn(c.en)}</span>` : ''}<span class="label">${d === 'en' ? 'Inglés' : 'Español'}</span><b class="${front.length > 22 ? 'long' : ''}">${esc(front)}</b><span class="muted small">${write ? (d === 'en' ? '¿Qué significa?' : '¿Cómo se dice en inglés?') : 'Toca para ver la respuesta'}</span></div>
+      <div class="face back"><span class="label">${d === 'en' ? 'Español' : 'Inglés'}</span><b class="${back.length > 22 ? 'long' : ''}">${show(back, d === 'es')}</b><span>${show(front, d === 'en')}</span></div>
+    </div></${write ? 'div' : 'button'}>
+    ${(write ? F.flip : d === 'en' || F.flip) ? `<div class="row" style="justify-content:center;margin-bottom:16px">${sayBtn(c.en, 'lg')}</div>` : ''}
     ${answer}`;
 }
 function checkCardAnswer(idk) {
@@ -1229,7 +1241,7 @@ function rateCard(v) {
       stats: [[`+${xp}`, 'XP'], [`${right}/${unique}`, 'A la primera'], [fixed, 'Reforzadas']],
       note: fixed ? 'Las tarjetas que fallaste volverán mañana para asegurarte de no olvidarlas.' : '¡Perfecto, ninguna fallada! 🌟' });
     celebrate();
-  } else { render(); if (S.cardWrite) { const i = $('#cardInput'); if (i) i.focus(); } }
+  } else { render(); if (S.cardWrite) focusCardInput(); }
 }
 function dictHTML() {
   const custom = Object.values(S.cards).filter(c => c.custom);
@@ -1927,7 +1939,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.1 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.2 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
