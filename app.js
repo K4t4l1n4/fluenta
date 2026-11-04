@@ -627,6 +627,23 @@ function applyTheme() {
   const m = $('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.documentElement).getPropertyValue('--bg1').trim() || (t === 'dark' ? '#13142a' : '#eeebff');
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => S.theme === 'auto' && applyTheme());
+function accentNowHTML(accent) {
+  const preset = ACCENTS.find(a => a[0] === accent);
+  return `Color actual: <b>${esc(preset ? preset[1] : 'elegido por ti')}</b>${accent !== DEFAULT_ACCENT ? ` · <button class="link-inline" data-act="accent" data-v="${DEFAULT_ACCENT}">volver al original</button>` : ''}`;
+}
+/* "Otro color": mientras deslizas en el selector del iPhone llegan muchos cambios seguidos.
+   El color se aplica sin redibujar Perfil: si el selector se reemplaza, el iPhone deja de seguir tu dedo. */
+let accentTimer = 0;
+function previewAccent(v) {
+  v = String(v).toLowerCase(); if (!/^#[0-9a-f]{6}$/.test(v)) return;
+  if (v === currentAccent()) return;   /* llegan "input" y "change" juntos con el mismo color */
+  S.accent = v === DEFAULT_ACCENT ? '' : v;
+  applyTheme();
+  document.querySelectorAll('.swatch').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  const dot = $('.other-color .dot'); if (dot) dot.style.setProperty('--sw', v);
+  const now = $('#accentNow'); if (now) now.innerHTML = accentNowHTML(v);
+  clearTimeout(accentTimer); accentTimer = setTimeout(() => { save(); toast('🎨 Color cambiado'); }, 800);   /* se guarda cuando sueltas */
+}
 
 /* ===== INICIO ===== */
 function greeting() { const h = new Date().getHours(); return h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches'; }
@@ -2115,7 +2132,7 @@ function renderProfile() {
   const lv = levelInfo();
   const stat = (i, v, l) => `<div class="stat">${i}<b>${v}</b><small>${l}</small></div>`;
   const th = (v, l) => `<button class="${S.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}">${l}</button>`;
-  const accent = currentAccent(), preset = ACCENTS.find(a => a[0] === accent);
+  const accent = currentAccent();
   return topBar('Perfil', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
   <section class="card profile-head"><div class="avatar lg">${esc((S.name || '🙂')[0].toUpperCase())}</div><div><b>${esc(S.name || 'Estudiante')}</b><p class="muted small">Nivel ${lv.L} · Liga ${leagueName()} · ${Object.keys(S.ach).length}/${ACH.length} logros</p></div></section>
   <div class="stats">${stat('🔥', currentStreak(), 'Racha')}${stat('⭐', S.xp, 'XP total')}${stat('📚', allLessons().filter(l => S.done[l.id]).length + '/' + allLessons().length, 'Lecciones')}${stat('🃏', Object.keys(S.cards).length, 'Palabras')}${stat('💬', Object.keys(S.dialogs).length + '/' + DIALOGS.length, 'Diálogos')}${stat('🎤', S.bestPron + '%', 'Mejor voz')}</div>
@@ -2125,7 +2142,7 @@ function renderProfile() {
     <div class="field">Color principal
       <div class="swatches">${ACCENTS.map(([hex, name]) => `<button class="swatch ${accent === hex ? 'on' : ''}" style="--sw:${hex}" data-act="accent" data-v="${hex}" aria-label="${name}"></button>`).join('')}</div>
       <div class="btn ghost wide other-color"><span class="dot" style="--sw:${accent}"></span>🎨 Otro color<input type="color" id="setAccent" value="${accent}" aria-label="Elegir otro color"></div>
-      <small class="muted block center" style="margin-top:8px">Color actual: <b>${esc(preset ? preset[1] : 'elegido por ti')}</b>${accent !== DEFAULT_ACCENT ? ' · <button class="link-inline" data-act="accent" data-v="' + DEFAULT_ACCENT + '">volver al original</button>' : ''}</small></div>
+      <small id="accentNow" class="muted block center" style="margin-top:8px">${accentNowHTML(accent)}</small></div>
   </section>
   <section class="card"><h2>💾 Respaldo</h2>
     <p class="muted small">Exporta un archivo con todo tu progreso. Sirve como copia de seguridad y para que Claude revise tus errores y te prepare refuerzos.${S.lastExport ? ` Última copia: ${new Date(S.lastExport).toLocaleDateString('es-CL')}.` : ''}</p>
@@ -2144,7 +2161,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.3 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.4 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -2307,7 +2324,7 @@ const ACTIONS = {
   cardidk: () => checkCardAnswer(true),
   jumplevel: el => { const s = $(`#view .unit[data-level="${el.dataset.v}"]`); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   favdone: () => { S.favTip = true; save(); render(); },
-  accent: el => { const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
+  accent: el => { clearTimeout(accentTimer); const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
 document.addEventListener('click', e => {
@@ -2341,13 +2358,13 @@ document.addEventListener('input', e => {
   else if (t.id === 'clIn') { CL.draft = t.value; CL.data = parseClaude(t.value); const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
-  else if (t.id === 'setAccent') { S.accent = t.value; applyTheme(); }   /* se ve al instante mientras eliges */
+  else if (t.id === 'setAccent') previewAccent(t.value);   /* se ve al instante mientras eliges */
   else if (t.id === 'setSoundVol') { S.soundVol = +t.value; save(); }
 });
 document.addEventListener('change', e => {
   if (e.target.id === 'setGoal') { S.goal = +e.target.value; save(); }
   else if (e.target.id === 'setSoundVol') sfx('ok');   /* para escuchar cómo queda el volumen */
-  else if (e.target.id === 'setAccent') { S.accent = e.target.value.toLowerCase() === DEFAULT_ACCENT ? '' : e.target.value.toLowerCase(); save(); applyTheme(); render(); toast('🎨 Color cambiado'); }
+  else if (e.target.id === 'setAccent') previewAccent(e.target.value);   /* sin render(): el iPhone manda "change" en cada movimiento */
   else if (e.target.id === 'importFile') {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     const r = new FileReader(); r.onload = () => importText(String(r.result)); r.readAsText(file);
