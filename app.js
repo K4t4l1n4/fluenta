@@ -217,8 +217,8 @@ function loadVoice() {
 }
 if ('speechSynthesis' in window) { loadVoice(); speechSynthesis.onvoiceschanged = loadVoice; }
 /* 🐢 Lento: en el iPhone, bajar solo la velocidad casi no se nota (y Safari no acepta menos de 0.5),
-   así que la frase se dice por partes cortas con una pausa entre ellas. Las partes no terminan en
-   "a", "the", "to"…: dichas solas se pronuncian distinto. */
+   así que la frase se dice por partes cortas: entre una parte y otra queda una pausa. Las partes no
+   terminan en "a", "the", "to"…: dichas solas se pronuncian distinto. */
 const SLOW_GLUE = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'from', 'by', 'about', 'my', 'your', 'his', 'her', 'our', 'their', 'its', 'and', 'or', 'but', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'i', 'you', 'he', 'she', 'we', 'they', 'it', 'do', 'does', 'did', "don't", "doesn't", "didn't", 'will', "won't", 'can', "can't", 'have', 'has', 'had', 'not', 'very', 'this', 'that', 'some', 'any', 'going']);
 function slowChunks(text) {
   const tk = text.split(/\s+/).filter(Boolean), out = [];
@@ -230,24 +230,19 @@ function slowChunks(text) {
   });
   return out;
 }
-let speakId = 0;
-function stopSpeech() { speakId++; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+function stopSpeech() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
 function speak(text, slow) {
   if (!('speechSynthesis' in window) || !text) return;
-  const busy = speechSynthesis.speaking || speechSynthesis.pending;
-  stopSpeech();
-  const id = speakId, say = text.replace(/^\(.*?\)\s*/, ''), parts = slow ? slowChunks(say) : [say];
-  const utter = i => {
-    if (id !== speakId || i >= parts.length) return;
-    const u = new SpeechSynthesisUtterance(parts[i]);
+  speechSynthesis.cancel();
+  const say = text.replace(/^\(.*?\)\s*/, '');
+  /* Todas las partes se piden en el mismo momento en que se toca el botón (quedan en fila):
+     si la voz se pide después, con una espera, el iPhone no la deja sonar. */
+  (slow ? slowChunks(say) : [say]).forEach(p => {
+    const u = new SpeechSynthesisUtterance(p);
     u.lang = 'en-US'; if (voice) u.voice = voice;
     u.rate = slow ? 0.5 : S.rate;
-    let done = false; const next = () => { if (!done) { done = true; setTimeout(() => utter(i + 1), 320); } };
-    if (i < parts.length - 1) { u.onend = next; u.onerror = next; setTimeout(next, 1000 + tokens(parts[i]).length * 900); }   /* por si el iPhone no avisa que terminó */
     speechSynthesis.speak(u);
-  };
-  /* Si algo estaba sonando, el iPhone a veces ignora lo que se pide justo después de cancelar: se espera un momento */
-  if (busy) setTimeout(() => utter(0), 150); else utter(0);
+  });
 }
 
 /* ===== Sonidos: los "toca" un mini sintetizador (sin archivos, funcionan sin internet) ===== */
@@ -2621,7 +2616,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.6.1 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.6.2 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
