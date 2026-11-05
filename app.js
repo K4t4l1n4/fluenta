@@ -49,7 +49,7 @@ const DEFAULT = {
   rate: 0.9, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
   resume: null, cardDir: 'en', cardWrite: false, favTip: false, recordVoice: true, autoReplay: true,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
-  writing: { texts: [], errs: {} }
+  writing: { texts: [], errs: {} }, tense: {}, verbs: {}
 };
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT));
 let S = load();
@@ -72,7 +72,7 @@ function addXp(n) {
 }
 
 /* ===== Historial de aciertos y errores ===== */
-const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)', dictation: 'Escuchar y escribir', fixwrite: 'Corregir mis errores de escritura' };
+const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)', dictation: 'Escuchar y escribir', fixwrite: 'Corregir mis errores de escritura', tense: 'Tiempos verbales', verbs: 'Verbos irregulares' };
 function trackType(type, ok) {
   const t = S.types[type] || (S.types[type] = { ok: 0, fail: 0 }); ok ? t.ok++ : t.fail++;
   const d = today(); ok ? d.ok++ : d.fail++;
@@ -158,8 +158,8 @@ function gloss(w) {
 }
 const dialogEnds = d => Object.keys(d.nodes).filter(k => d.nodes[k].end);
 function autoLesson() {
-  const weak = weakItems(14), fixes = writingDrills(4);
-  if (!weak.length && !fixes.length) return null;
+  const weak = weakItems(14), fixes = writingDrills(4), verbs = weakVerbs(3);
+  if (!weak.length && !fixes.length && !verbs.length) return null;
   const words = weak.filter(i => i.kind === 'w').slice(0, 6).map(i => [i.en, i.es]);
   const sentences = weak.filter(i => i.kind === 's').slice(0, 4).map(i => [i.en, i.es]);
   if (sentences.length < 2 && words.length) {
@@ -167,11 +167,15 @@ function autoLesson() {
     const related = shuffle(allSentences()).filter(s => keys.some(k => (' ' + s[0].toLowerCase().replace(/[.,!?]/g, '') + ' ').includes(' ' + k + ' ')) && !sentences.some(x => x[0] === s[0]));
     sentences.push(...related.slice(0, 2 - sentences.length));
   }
-  return { id: 'auto', title: 'Mis errores', icon: '🎯', focus: true, count: weak.length + fixes.length,
-    tip: 'Esta lección se armó sola con las palabras y frases que más te han costado, y con tus errores al escribir. Cada palabra aparece de varias formas para que la fijes bien.',
-    words, sentences, fixes };
+  return { id: 'auto', title: 'Mis errores', icon: '🎯', focus: true, count: weak.length + fixes.length + verbs.length,
+    tip: 'Esta lección se armó sola con las palabras y frases que más te han costado, con tus errores al escribir y con los verbos irregulares que más fallas. Cada palabra aparece de varias formas para que la fijes bien.',
+    words, sentences, fixes, verbs };
 }
-function findLesson(id) { if (id === 'auto') return autoLesson(); return allLessons().find(l => l.id === id) || S.packs.find(p => p.id === id); }
+function findLesson(id) {
+  if (id === 'auto') return autoLesson();
+  if (/^verbs/.test(id)) return verbLesson(id);
+  return allLessons().find(l => l.id === id) || TENSE_LESSONS.find(l => l.id === id) || S.packs.find(p => p.id === id);
+}
 
 /* ===== Logros ===== */
 const ACH = [
@@ -537,7 +541,7 @@ function go(t) {
 function render() {
   rollover();
   document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude })[tab]();
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude, tenses: renderTenses, verbs: renderVerbs })[tab]();
   if (tab === 'home') fillWod();
 }
 function renderNav() {
@@ -670,7 +674,7 @@ function renderHome() {
   const lv = levelInfo(), st = currentStreak(), goalPct = Math.min(100, pct(S.dailyXp, S.goal));
   const nx = allLessons().find(l => !S.done[l.id]);
   const table = leagueTable(), pos = table.findIndex(r => r.you);
-  const weak = weakItems(20).length + writingDrills(4).length;
+  const weak = weakItems(20).length + writingDrills(4).length + weakVerbs(3).length;
   const needBackup = S.xp > 0 && Date.now() - (S.lastExport || 0) > 7 * 864e5;
   return `
   <header class="home-top"><div><p class="muted">${greeting()}${S.name ? ', ' + esc(S.name) : ''} 👋</p><p class="small muted">Nivel ${lv.L} · Liga ${leagueName()}</p></div>
@@ -686,12 +690,14 @@ function renderHome() {
   </section>
   ${resumeCard()}
   <div id="wod"></div>
+  ${verbOfDayHTML()}
   <div class="row between section-title"><h2>Tus secciones</h2></div>
   <div class="grid2">${sectionStats().map(s => `
     <button class="sec-card" data-act="tab" data-tab="${s.tab}" ${s.seg ? `data-seg2="${s.seg}"` : ''}>
       <span class="sec-ring" style="--p:${s.p}"><span>${ic(s.icon)}</span></span>
       <b>${s.title}</b><small>${s.p}% completado</small></button>`).join('')}</div>
   <button class="card action-card" data-act="tab" data-tab="write"><span class="icon-bubble">✍️</span><span class="grow"><b>Escribir en inglés</b><small class="muted block">${(S.writing && S.writing.texts.length) ? `${S.writing.texts.length} textos escritos · ` : ''}Temas guiados con corrección en español</small></span>${ic('play', 'sm accent')}</button>
+  <button class="card action-card" data-act="tenses"><span class="icon-bubble">⏳</span><span class="grow"><b>Tiempos verbales</b><small class="muted block">Presente, pasado y futuro, con mucha práctica</small></span>${ic('play', 'sm accent')}</button>
   <section class="card row goal-card">${ring(goalPct, `${S.dailyXp}/${S.goal}`)}<div class="grow"><b>Meta diaria</b><p class="muted small">${goalPct >= 100 ? '¡Cumplida! ✅ Sigue sumando para la liga.' : `Te faltan ${S.goal - S.dailyXp} XP para hoy.`}</p></div></section>
   ${weak >= 3 ? `<button class="card action-card" data-act="lesson" data-id="auto"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Practica tus errores</b><small class="muted block">${weak} palabras y frases para reforzar</small></span>${ic('play', 'sm accent')}</button>` : ''}
   ${needBackup ? `<button class="card action-card" data-act="export"><span class="icon-bubble">${ic('upload')}</span><span class="grow"><b>Guarda una copia</b><small class="muted block">Exporta tu progreso para respaldarlo y que Claude lo revise</small></span></button>` : ''}
@@ -715,7 +721,8 @@ function renderLessons() {
     ${S.packs.map(p => `<div class="pack-row">${lessonRow(p, true, `<span class="muted small">${esc(p.note || 'Refuerzo preparado por Claude')}</span>`)}<button class="icon-btn sm" data-act="delpack" data-id="${esc(p.id)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}
   </div></section>` : '';
   return topBar('Lecciones', `<div class="pill">📚 ${allLessons().filter(l => S.done[l.id]).length}/${allLessons().length}</div>`) + resumeCard()
-    + `<button class="card action-card" data-act="tab" data-tab="grammar"><span class="icon-bubble">📖</span><span class="grow"><b>Gramática</b><small class="muted block">Todos los tips de las lecciones en un solo lugar</small></span>${ic('play', 'sm accent')}</button>`
+    + `<button class="card action-card tz-feature" data-act="tenses"><span class="icon-bubble">⏳</span><span class="grow"><b>Tiempos verbales</b><small class="muted block">Presente, pasado y futuro · ${TENSE_LESSONS.filter(l => S.done[l.id]).length}/${TENSE_LESSONS.length} prácticas</small></span>${ic('play', 'sm accent')}</button>
+      <div class="grid2"><button class="sec-card topic" data-act="verbs"><span class="topic-icon">📒</span><b>Verbos</b><small>Regulares e irregulares</small></button><button class="sec-card topic" data-act="tab" data-tab="grammar"><span class="topic-icon">📖</span><b>Gramática</b><small>Todos los tips</small></button></div>`
     + levelChips() + refuerzo +
     LESSONS.map(u => {
       const done = u.lessons.filter(l => S.done[l.id]).length;
@@ -736,6 +743,8 @@ function renderGrammar() {
   return topBar('Gramática', `<button class="icon-btn" data-act="tab" data-tab="lessons" aria-label="Cerrar">${ic('x')}</button>`)
     + `<p class="muted small">Todos los tips de las lecciones. Toca las palabras en inglés para ver qué significan.</p>
     <div class="chips">${['all', ...levels].map(l => `<button class="lvl-chip ${grammarLevel === l ? 'on' : ''}" data-act="glevel" data-v="${l}">${l === 'all' ? 'Todos' : l}</button>`).join('')}</div>`
+    + (grammarLevel === 'all' ? `<section class="unit"><div class="unit-head"><span class="badge warm">Tiempos</span><h2 class="grow">Tiempos verbales</h2></div>
+      ${TENSES.map(t => `<div class="card tip-card gram"><span class="label">${t.icon} ${esc(t.title)}</span><p>${tipHTML(t.tip)}</p><button class="link-inline small" data-act="tense" data-id="${t.id}">Ver la ficha completa →</button></div>`).join('')}</section>` : '')
     + LESSONS.filter(u => grammarLevel === 'all' || u.level === grammarLevel).map(u => `<section class="unit"><div class="unit-head"><span class="badge">${u.level}</span><h2 class="grow">${esc(u.unit)}</h2></div>
       ${u.lessons.map(l => `<div class="card tip-card gram"><span class="label">${l.icon} ${esc(l.title)}</span><p>${tipHTML(l.tip)}</p></div>`).join('')}</section>`).join('');
 }
@@ -757,6 +766,8 @@ function fillWod() {
 }
 function uniqBy(arr, f) { const s = new Set(); return arr.filter(x => { const k = f(x); if (s.has(k)) return false; s.add(k); return true; }); }
 function genExercises(les) {
+  if (les.verbQs) return les.verbQs;               /* práctica de verbos irregulares */
+  if (les.drills) return genTenseExercises(les);   /* tiempos verbales */
   const words = les.words || [], sentences = les.sentences || [];
   const others = (correct, f) => {
     const local = shuffle(words.map(w => w[f])), global = shuffle(allWords().map(w => w[f]));
@@ -787,6 +798,7 @@ function genExercises(les) {
     if (sentences.length) ex.push(mkSpeak(sentences[0]));
     else if (words.length) ex.push(mkSpeak(words[0]));
     (les.fixes || []).forEach(f => ex.push(mkFix(f)));   /* tus errores de escritura */
+    (les.verbs || []).forEach(x => { const v = IRR_MAP.get(x.b); if (v) ex.push(verbQ(v, x.form)); });   /* verbos irregulares que fallas */
   } else {
     /* 20 ejercicios, de más fácil a más difícil: reconocer → producir → frases completas.
        take() elige primero las palabras y frases menos usadas, para que salgan todas. */
@@ -936,7 +948,12 @@ function evaluateLesson() {
     const it = S.writing && S.writing.errs[ex.fixKey];
     if (it) { if (ok) it.ok = (it.ok || 0) + 1; else it.n++; }
     trackType('fixwrite', ok); save();
+  } else if (ex.verb) {   /* verbo irregular: aciertos y errores por forma (pasado o participio) */
+    const v = S.verbs[ex.verb] || (S.verbs[ex.verb] = {}), f = v[ex.form] || (v[ex.form] = { ok: 0, fail: 0 });
+    ok ? f.ok++ : f.fail++; v.last = Date.now();
+    trackType('verbs', ok); save();
   } else track(ex.track, ex.en, ex.es, ok);
+  if (ex.tense) { const t = S.tense[ex.tense] || (S.tense[ex.tense] = { ok: 0, fail: 0 }); ok ? t.ok++ : t.fail++; save(); }
   if (ok) { if (!ex.retry) L.first++; sfx('ok'); if (ex.type === 'order' || ex.type === 'fill' || ex.type === 'write') speakAfter(ex.say); }
   else { sfx('bad'); L.queue.push({ ...ex, retry: true, options: ex.options && shuffle(ex.options), tokens: ex.tokens && shuffle(ex.tokens) }); }
   saveResume();
@@ -963,9 +980,9 @@ function finishLesson() {
   if (isAuto) S.autoDone = (S.autoDone || 0) + 1;
   else S.done[les.id] = Math.max(S.done[les.id] || 0, stars);
   let added = 0;
-  les.words.forEach(w => { if (!S.cards[w[0]]) { S.cards[w[0]] = { en: w[0], es: w[1], box: 1, due: 0 }; added++; } });
+  if (!les.noCards) les.words.forEach(w => { if (!S.cards[w[0]]) { S.cards[w[0]] = { en: w[0], es: w[1], box: 1, due: 0 }; added++; } });
   addXp(xp);
-  view().innerHTML = summaryHTML({ emoji: stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: 'lessons',
+  view().innerHTML = summaryHTML({ emoji: stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: les.back || 'lessons',
     stats: [[`+${xp}`, 'XP'], [acc + '%', 'A la primera'], ['★'.repeat(stars) + '☆'.repeat(3 - stars), 'Estrellas']],
     note: added ? `Se agregaron ${added} palabras nuevas a tus tarjetas 🃏` : (L.total < L.queue.length ? `Repetiste ${L.queue.length - L.total} ejercicios hasta acertarlos 💪` : '') });
   L = null;
@@ -1691,7 +1708,7 @@ function fixHTML(m) {
   if (m.status === 'checking') return '<div class="wfix"><p class="muted small center">🔎 Revisando tu texto…</p></div>';
   if (!m.errors) return `<div class="wfix"><p class="err">⚠️ No pude revisar tu texto. Quedó guardado.</p><button class="btn ghost wide" data-act="wretry" data-k="${m.k}">Revisar otra vez</button></div>`;
   return `<div class="wfix">${m.errors.length ? `<div class="wfix-text">${markedHTML(m.text, m.errors)}</div>
-      ${m.errors.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div>${e.rule === 'CLAUDE' ? '<div class="small cl-note">✨ Claude ya te había corregido esto</div>' : ''}</div>`).join('')}
+      ${m.errors.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div>${e.rule === 'CLAUDE' ? '<div class="small cl-note">✨ Claude ya te había corregido esto</div>' : ''}${tenseLink(e)}</div>`).join('')}
       <div class="wfix-ok"><span class="label">Texto corregido</span><div>${tapText(correctedText(m.text, m.errors))}</div></div>`
     : '<p class="wfix-perfect">✅ ¡Muy bien! No encontré errores.</p>'}
     ${m.online === false ? '<p class="muted small">📴 Sin internet revisé solo lo básico. Con conexión la corrección es más completa.</p>' : ''}</div>`;
@@ -1707,7 +1724,7 @@ function saveWriting(entry, errors, online) {
   if (wr.texts.length > 200) wr.texts.splice(0, wr.texts.length - 200);
   if (errors) {
     errors.forEach(e => {
-      const it = wr.errs[key(e)] || (wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, n: 0, last: 0 });
+      const it = wr.errs[key(e)] || (wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, rule: e.rule, n: 0, last: 0 });
       it.n++; it.last = Date.now();
     });
     if (!entry.counted) { entry.counted = true; trackType('write', !errors.length); }
@@ -1734,6 +1751,7 @@ function renderWriteChat() {
       <div class="row gap" style="margin-top:12px">${t.id === 'free' || last.who !== 'app' ? '' : `<button class="btn ghost grow" data-act="wskip">Saltar pregunta</button>`}<button class="btn ghost grow" data-act="wend">Terminar</button></div>`;
   view().innerHTML = `<div class="lesson-top"><button class="icon-btn" data-act="quit" aria-label="Salir">${ic('x')}</button><div class="grow"><b>${t.icon} ${esc(t.title)}</b><div class="bar"><i style="width:${W.done ? 100 : pct(W.qi, t.questions.length)}%"></i></div></div></div>
     ${W.log.length === 1 ? '<p class="muted small center">Responde en inglés con frases completas. La app te corrige y te explica cada error en español.</p>' : ''}
+    ${W.log.length === 1 && t.tense ? `<p class="small center tz-hint">💡 Este tema es para practicar el <b>${esc(tenseName(t.tense).split(':')[0].toLowerCase())}</b>. <button class="link-inline" data-act="tensesheet" data-id="${t.tense}">Ver cómo se forma</button></p>` : ''}
     <div class="chat">${chat}</div><div class="dlg-input">${composer}</div>`;
 }
 async function sendWriting() {
@@ -1773,7 +1791,7 @@ function finishWrite() {
   if (!msgs.length) { go('write'); return; }
   view().innerHTML = `<div class="summary"><div class="emoji">✍️</div><h1>¡Bien escrito!</h1>
     <div class="sum-stats"><div class="stat"><b>${msgs.length}</b><small>Respuestas</small></div><div class="stat"><b>${words}</b><small>Palabras</small></div><div class="stat"><b>${perfect}/${msgs.length}</b><small>Sin errores</small></div></div></div>
-    ${errs.length ? `<section class="card"><h2>📝 Para repasar</h2>${errs.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}</section>`
+    ${errs.length ? `<section class="card"><h2>📝 Para repasar</h2>${errs.map(wfixItemHTML).join('')}</section>`
       : '<section class="card center"><b>🌟 ¡No tuviste errores en este tema!</b></section>'}
     <section class="card"><h2>✨ ¿Una corrección más completa?</h2><p class="muted small">Copia lo que escribiste, pégalo en Claude y trae sus mejoras de vuelta a Fluenta.</p>
       <button class="btn ghost wide" data-act="clcopy" data-ids="${ids}">📋 Copiar para Claude</button></section>
@@ -1789,7 +1807,7 @@ function renderWriteTab() {
   return topBar('Escribir', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
     <p class="muted small">Elige un tema y responde en inglés. La app corrige tu ortografía y tu gramática, y te explica cada error en español.</p>
     ${texts.length ? `<div class="stats"><div class="stat">📝<b>${texts.length}</b><small>Textos</small></div><div class="stat">🔤<b>${words}</b><small>Palabras</small></div><div class="stat">🎯<b>${Object.keys(wr.errs || {}).length}</b><small>Errores distintos</small></div></div>` : ''}
-    <div class="grid2">${WRITE_TOPICS.map(t => `<button class="sec-card topic" data-act="write" data-id="${t.id}"><span class="topic-icon">${t.icon}</span><b>${esc(t.title)}</b><small>${t.id === 'free' ? 'Tú eliges el tema' : `${t.questions.length} preguntas`}</small></button>`).join('')}</div>
+    <div class="grid2">${WRITE_TOPICS.map(t => `<button class="sec-card topic" data-act="write" data-id="${t.id}"><span class="topic-icon">${t.icon}</span><b>${esc(t.title)}</b><small>${t.id === 'free' ? 'Tú eliges el tema' : `${t.questions.length} preguntas`}</small>${t.tense ? `<small class="tz-topic">${esc(tenseName(t.tense).split(':')[0])}</small>` : ''}</button>`).join('')}</div>
     <section class="card"><h2>✨ Corrección con Claude</h2>
       <p class="muted small">Claude corrige mucho más que la app. Copia tus textos, pégalos en Claude y trae sus mejoras de vuelta: se vuelven lección, tarjetas y práctica de pronunciación.</p>
       ${unrev ? `<button class="btn primary wide" data-act="clcopy" data-ids="new">📋 Copiar ${unrev === 1 ? 'tu último texto' : `tus ${unrev} textos nuevos`} para Claude</button>` : ''}
@@ -1829,11 +1847,11 @@ const CLAUDE_RULES = [
   '',
   'Al final de tu respuesta agrega siempre un bloque de código json con el título «Para Fluenta», para copiarlo y pegarlo en mi app. Usa exactamente este formato:',
   '```json',
-  '{"app":"fluenta","kind":"claude","v":1,"texts":["id"],"errors":[{"wrong":"","right":"","type":"","es":"","always":false}],"sentences":[["inglés","español"]],"words":[["inglés","español"]],"tip":""}',
+  '{"app":"fluenta","kind":"claude","v":1,"texts":["id"],"errors":[{"wrong":"","right":"","type":"","es":"","always":false,"tense":""}],"sentences":[["inglés","español"]],"words":[["inglés","español"]],"tip":""}',
   '```',
   'Reglas del bloque:',
   '- texts: los id de los textos que revisaste (van entre corchetes antes de cada texto, por ejemplo [lq3x9a]).',
-  '- errors: un objeto por error. wrong: copia exacto lo que yo escribí, solo la palabra o las pocas palabras con el error. right: cómo va bien (vacío si hay que quitarlo). type: Gramática, Ortografía, Vocabulario, Puntuación, Mayúsculas o Expresión. es: la explicación en español, en una o dos frases cortas. always: true solo si eso está mal en cualquier frase (por ejemplo una palabra mal escrita o "more better"); false si depende de la frase.',
+  '- errors: un objeto por error. wrong: copia exacto lo que yo escribí, solo la palabra o las pocas palabras con el error. right: cómo va bien (vacío si hay que quitarlo). type: Gramática, Ortografía, Vocabulario, Puntuación, Mayúsculas o Expresión. es: la explicación en español, en una o dos frases cortas. always: true solo si eso está mal en cualquier frase (por ejemplo una palabra mal escrita o "more better"); false si depende de la frase. tense: si el error es de tiempo verbal, el tiempo que va: pres (presente simple), prog (presente continuo), past (pasado simple), pastprog (pasado continuo), fut (futuro) o perf (presente perfecto); si no, déjalo vacío.',
   '- sentences: hasta 8 frases en inglés, corregidas o más naturales, basadas en lo que escribí, con su traducción.',
   '- words: hasta 8 palabras o expresiones nuevas que me sirvan para estos temas, con su traducción.',
   '- tip: un consejo corto en español para mi próximo texto.',
@@ -1841,7 +1859,7 @@ const CLAUDE_RULES = [
 ].join('\n');
 const textId = e => e.t.toString(36);
 const sheetHead = t => `<div class="sheet-top"><b class="grow">${t}</b><button class="icon-btn sm" data-act="sheetclose" aria-label="Cerrar">${ic('x')}</button></div>`;
-const wfixItemHTML = e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`;
+const wfixItemHTML = e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div>${tenseLink(e)}</div>`;
 const claudeSentences = () => uniqBy(S.packs.filter(p => p.claude).flatMap(p => p.sentences), s => s[0].toLowerCase()).filter(s => tokens(s[0]).length <= 14);
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
@@ -1902,7 +1920,7 @@ function parseClaude(raw) {
   const str = (v, n) => typeof v === 'string' ? v.trim().slice(0, n) : '';
   const pairs = (v, n) => validPairs(v).slice(0, n).map(([en, es]) => [en.slice(0, 200), es.slice(0, 200)]);
   const errors = (Array.isArray(d.errors) ? d.errors : []).filter(e => e && typeof e === 'object')
-    .map(e => ({ wrong: str(e.wrong, 80), right: str(e.right, 120), type: str(e.type, 24) || 'Revisa', es: str(e.es, 300) || 'Claude lo corrigió así.', always: typeof e.always === 'boolean' ? e.always : undefined }))
+    .map(e => ({ wrong: str(e.wrong, 80), right: str(e.right, 120), type: str(e.type, 24) || 'Revisa', es: str(e.es, 300) || 'Claude lo corrigió así.', always: typeof e.always === 'boolean' ? e.always : undefined, tense: TENSE_MAP[e.tense] ? e.tense : undefined }))
     .filter(e => e.wrong && e.wrong !== e.right);
   const out = {
     errors: uniqBy(errors, e => `${e.wrong.toLowerCase()} → ${e.right.toLowerCase()}`), sentences: pairs(d.sentences, 12), words: pairs(d.words, 12),
@@ -1918,8 +1936,8 @@ function applyClaude(d, toCards) {
   d.errors.forEach(e => {
     const it = wr.errs[key(e)];
     /* Si la app ya lo había encontrado, se queda con la explicación de Claude (sin contarlo dos veces) */
-    if (it) Object.assign(it, { type: e.type, es: e.es, claude: true }, e.always != null ? { always: e.always } : {});
-    else wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, n: 1, last: now, claude: true, always: e.always };
+    if (it) Object.assign(it, { type: e.type, es: e.es, claude: true }, e.always != null ? { always: e.always } : {}, e.tense ? { tense: e.tense } : {});
+    else wr.errs[key(e)] = { wrong: e.wrong, right: e.right, type: e.type, es: e.es, n: 1, last: now, claude: true, always: e.always, tense: e.tense };
   });
   /* Textos revisados: los que Claude nombró; si no los nombró, los recientes donde aparece algún error */
   const ids = new Set(d.texts), listed = wr.texts.filter(t => ids.has(textId(t)));
@@ -1927,7 +1945,7 @@ function applyClaude(d, toCards) {
   (listed.length ? listed : wr.texts.slice(-15)).forEach(t => {
     const errs = d.errors.filter(e => t.text.toLowerCase().includes(e.wrong.toLowerCase()));
     if (!listed.includes(t) && !errs.length) return;
-    t.claude = { t: now, errors: errs.map(({ wrong, right, type, es }) => ({ wrong, right, type, es })) }; marked++;
+    t.claude = { t: now, errors: errs.map(({ wrong, right, type, es, tense }) => ({ wrong, right, type, es, tense })) }; marked++;
   });
   /* Lección con tus frases corregidas, palabras nuevas y tus errores para corregir */
   const fixes = d.errors.filter(e => e.right && e.wrong.toLowerCase() !== e.right.toLowerCase()).slice(0, 6).map(e => ({ key: key(e), wrong: e.wrong, right: e.right, es: e.es }));
@@ -2003,6 +2021,219 @@ function claudeHits(text) {
   return out;
 }
 
+/* ===== TIEMPOS VERBALES =====
+   El contenido está en verbos.js. Las prácticas no entran en la cadena de desbloqueo:
+   siempre están abiertas y no bloquean las lecciones que ya tienes. */
+const TENSE_MAP = Object.fromEntries(TENSES.map(t => [t.id, t]));
+const TIME_GROUPS = [['Presente', 'Lo de siempre y lo de ahora'], ['Pasado', 'Lo que ya pasó'], ['Futuro', 'Lo que va a pasar'], ['Puente', 'Entre el pasado y el presente']];
+const tzLesson = (l, extra) => ({ ...l, ...extra, words: l.words || [], sentences: [], back: 'tenses', noCards: true });
+const TENSE_LESSONS = [...TENSES.flatMap(t => t.lessons.map(l => tzLesson(l, { tense: t.id, tip: l.tip || t.tip }))), ...TENSE_MIX.map(l => tzLesson(l, { mix: true }))];
+const tenseName = id => TENSE_MAP[id] ? TENSE_MAP[id].title : '';
+const tenseLessonsOf = t => TENSE_LESSONS.filter(l => l.tense === t.id && !l.mix);
+const tenseDone = t => t.lessons.filter(l => S.done[l.id]).length;
+function tenseStat(id) { const x = S.tense[id]; return x && x.ok + x.fail ? pct(x.ok, x.ok + x.fail) : null; }
+let tenseId = null, tenseForm = 'aff';
+/* 20 ejercicios: reconocer las palabras → completar con la forma correcta → escuchar, ordenar y decirlo */
+function genTenseExercises(les) {
+  const fill = (d, opt) => { const [a, b] = d[0].split('___'); return (a + opt + b).trim(); };
+  const tz = d => les.mix ? d[4] : les.tense, why = d => les.mix ? d[5] || TENSE_WHY[d[4]] : d[4] || '';
+  const drills = les.drills.map(d => {
+    const [a, b] = d[0].split('___'), en = fill(d, d[1]);
+    return { type: 'fill', track: 'tense', tense: tz(d), prompt: les.mix ? 'Elige el tiempo correcto' : 'Completa con la forma correcta', hint: d[3],
+      before: a.trim(), after: b, say: en, answer: d[1], options: shuffle([d[1], ...d[2]]), en, es: d[3], explain: why(d) };
+  });
+  const ws = shuffle(les.words), others = (w, k) => shuffle(ws.filter(x => x !== w).map(x => x[k])).slice(0, 3);
+  const recog = ws.length >= 5 ? [
+    ...ws.slice(0, 2).map(w => ({ type: 'choice', track: 'meaning', tense: les.tense, prompt: '¿Qué significa?', big: w[0], say: w[0], answer: w[1], options: shuffle([w[1], ...others(w, 1)]), en: w[0], es: w[1] })),
+    ...ws.slice(2, 4).map(w => ({ type: 'choice', track: 'translate', tense: les.tense, prompt: '¿Cómo se dice en inglés?', big: w[1], say: w[0], answer: w[0], options: shuffle([w[0], ...others(w, 0)]), en: w[0], es: w[1] })),
+    { type: 'write', track: 'dictation', tense: les.tense, prompt: 'Escucha y escribe en inglés', say: ws[4][0], answer: ws[4][0], en: ws[4][0], es: ws[4][1] }] : [];
+  /* Con las mismas frases: ordenar, escuchar (¿cuál forma oíste?) y leer en voz alta */
+  const pool = shuffle(les.drills.filter(d => !d[0].includes('—'))), short = pool.filter(d => tokens(fill(d, d[1])).length <= 10);   /* ordenar: solo frases cortas */
+  const order = d => { const en = fill(d, d[1]); return { type: 'order', track: 'order', tense: tz(d), prompt: 'Traduce ordenando las palabras', big: d[3], say: en, answer: en, tokens: shuffle(tokens(en)), en, es: d[3] }; };
+  const listen = d => { const en = fill(d, d[1]); return { type: 'listen', track: 'listen', tense: tz(d), prompt: 'Escucha y elige lo que oíste', say: en, answer: en, options: shuffle([en, ...d[2].map(o => fill(d, o))]), en, es: d[3] }; };
+  const last = short[short.length - 1] || pool[pool.length - 1], orders = short.filter(d => d !== last).slice(0, 2);
+  const rest = pool.filter(d => d !== last && !orders.includes(d)), more = orders.map(order);
+  while (recog.length + drills.length + more.length < 19 && rest.length) more.push(listen(rest.shift()));
+  const speak = last ? [{ type: 'speak', track: 'speak', prompt: 'Lee en voz alta', big: fill(last, last[1]), sub: last[3], say: fill(last, last[1]), answer: fill(last, last[1]), en: fill(last, last[1]), es: last[3] }] : [];
+  return noRepeats([...shuffle(recog), ...shuffle(drills), ...shuffle(more), ...speak]);
+}
+function renderTenses() {
+  if (tenseId && TENSE_MAP[tenseId]) return renderTense(TENSE_MAP[tenseId]);
+  const done = TENSE_LESSONS.filter(l => S.done[l.id]).length, all = Object.values(S.tense), ok = all.reduce((a, x) => a + x.ok, 0), n = all.reduce((a, x) => a + x.ok + x.fail, 0);
+  return topBar('Tiempos verbales', `<button class="icon-btn" data-act="tab" data-tab="lessons" aria-label="Cerrar">${ic('x')}</button>`) + `
+    <p class="muted small">Presente, pasado y futuro: cómo se forma cada tiempo, cuándo se usa y mucha práctica. Toca un tiempo para ver su ficha.</p>
+    <div class="stats"><div class="stat">⏳<b>${TENSES.length}</b><small>Tiempos</small></div><div class="stat">🎯<b>${done}/${TENSE_LESSONS.length}</b><small>Prácticas</small></div><div class="stat">✅<b>${n ? pct(ok, n) + '%' : '—'}</b><small>Aciertos</small></div></div>
+    <section class="card"><h2>🧭 ¿Qué tiempo uso?</h2><p class="muted small">Pregúntate esto sobre lo que quieres decir:</p>
+      ${TENSE_GUIDE.map(([q, id, ex]) => `<button class="tz-guide" data-act="tense" data-id="${id}"><span class="grow"><b>${esc(q)}</b><small class="block">→ ${esc(tenseName(id))} · <i>${esc(ex)}</i></small></span>${ic('play', 'sm accent')}</button>`).join('')}</section>
+    <section class="card"><h2>🔁 Un verbo en todos los tiempos</h2>
+      ${TENSE_COMPARE.map(([id, en, es]) => `<div class="word-row">${sayBtn(en.replace(' · ', '. '), 'sm')}<div class="grow"><b>${tapText(en)}</b><span class="muted small block">${esc(es)}</span></div><button class="tz-tag" data-act="tense" data-id="${id}">${esc(tenseName(id).split(':')[0])}</button></div>`).join('')}</section>
+    ${TIME_GROUPS.map(([g, sub]) => `<section class="unit"><div class="unit-head"><span class="badge ${g === 'Puente' ? 'soft' : ''}">${g}</span><h2 class="grow">${sub}</h2></div><div class="path">
+      ${TENSES.filter(t => t.time === g).map(t => { const p = tenseStat(t.id), d = tenseDone(t); return `<button class="lesson ${d === t.lessons.length ? 'done' : ''}" data-act="tense" data-id="${t.id}"><span class="lesson-icon">${t.icon}</span><span class="lesson-info grow"><b>${esc(t.title)}</b><span class="muted small block">${esc(t.short)}</span><span class="muted small block">${d}/${t.lessons.length} ${t.lessons.length === 1 ? 'práctica' : 'prácticas'}${p != null ? ` · ${p}% de aciertos` : ''}</span></span>${ic('play', 'sm accent')}</button>`; }).join('')}</div></section>`).join('')}
+    <section class="unit"><div class="unit-head"><span class="badge warm">Mezcla</span><h2 class="grow">Aprende a elegir el tiempo</h2></div><div class="path">${TENSE_LESSONS.filter(l => l.mix).map(l => lessonRow(l, true)).join('')}</div></section>
+    <button class="card action-card" data-act="verbs"><span class="icon-bubble">📒</span><span class="grow"><b>Verbos regulares e irregulares</b><small class="muted block">Todas sus formas: base, pasado, participio y -ing</small></span>${ic('play', 'sm accent')}</button>`;
+}
+/* Español de la tabla en negativo y en pregunta: «yo trabajo» → «yo no trabajo» / «¿trabajo?» */
+function esForm(es, mode) {
+  const m = es.match(/^(yo|tú|ella|él|nosotros|ellos) (.*)$/);
+  return !m || mode === 'aff' ? es : mode === 'neg' ? `${m[1]} no ${m[2]}` : `¿${m[2]}?`;
+}
+const tzExampleHTML = (en, es) => `<div class="row gap-s">${sayBtn(en, 'sm')}<div class="grow"><div>${tapText(en)}</div><div class="muted small">${esc(es)}</div></div></div>`;
+const mistakeHTML = ([w, r, es]) => `<div class="wfix-item"><div><del>${esc(w)}</del></div><div class="row gap-s"><ins>${esc(r)}</ins>${sayBtn(r, 'sm')}</div><div class="small">${esc(es)}</div></div>`;
+function renderTense(t) {
+  const modes = [['aff', '✅ Afirmativa'], ['neg', '🚫 Negativa'], ['q', '❓ Pregunta']], col = { aff: 1, neg: 2, q: 3 }[tenseForm], p = tenseStat(t.id);
+  return topBar(`${t.icon} ${esc(t.title)}`, `<button class="icon-btn" data-act="tensehub" aria-label="Volver">${ic('x')}</button>`) + `
+    <p class="tz-short">${esc(t.short)}</p>
+    <div class="card tz-formula"><span class="label">Cómo se forma</span><b>${esc(t.formula)}</b></div>
+    <section class="card"><div class="seg mini">${modes.map(([v, l]) => `<button class="${tenseForm === v ? 'on' : ''}" data-act="tform" data-v="${v}">${l}</button>`).join('')}</div>
+      ${t.tables.map(tb => `<span class="label tz-label">${esc(tb.title)}</span>${tb.rows.map(r => `<div class="tz-row"><span class="tz-p">${esc(r[0])}</span><span class="grow"><b>${tapText(r[col])}</b><small class="muted block">${esc(esForm(r[4], tenseForm))}</small></span>${sayBtn(r[col].replace('…', ''), 'sm')}</div>`).join('')}${tb.note ? `<p class="small tz-note">💡 ${tipHTML(tb.note)}</p>` : ''}`).join('')}
+      <span class="label tz-label">Respuestas cortas</span>${t.answers.map(([q, y, n]) => `<div class="tz-row"><span class="grow"><b>${tapText(q)}</b><small class="muted block">${esc(y)} · ${esc(n)}</small></span>${sayBtn(`${q} ${y} ${n}`, 'sm')}</div>`).join('')}</section>
+    <section class="card"><h2>📌 Cuándo se usa</h2>${t.uses.map(([u, en, es]) => `<div class="tz-use"><span class="label">${esc(u)}</span>${tzExampleHTML(en, es)}</div>`).join('')}</section>
+    ${t.vs ? `<section class="card"><h2>⚖️ ${esc(t.vs.title)}</h2>${t.vs.rows.map(([q, id, en, es]) => `<div class="tz-use"><span class="label">${esc(q)} → ${esc(tenseName(id))}</span>${tzExampleHTML(en, es)}</div>`).join('')}<p class="small tz-note">💡 ${tipHTML(t.vs.note)}</p></section>` : ''}
+    <section class="card"><h2>🔎 Palabras que te dan la pista</h2><div class="word-chips left">${t.signals.map(w => `<button class="word-chip" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b></button>`).join('')}</div></section>
+    <section class="card"><h2>✏️ Cómo se escribe</h2>${t.rules.map(([r, ex]) => `<div class="tz-rule"><b>${esc(r)}</b><span class="muted small block">${esc(ex)}</span></div>`).join('')}</section>
+    <section class="card"><h2>⚠️ Errores típicos</h2>${t.mistakes.map(mistakeHTML).join('')}</section>
+    <section class="unit"><div class="unit-head"><span class="badge">Práctica</span><h2 class="grow">${t.lessons.length} ${t.lessons.length === 1 ? 'lección' : 'lecciones'} de 20 ejercicios</h2>${p != null ? `<span class="muted small">${p}%</span>` : ''}</div><div class="path">${tenseLessonsOf(t).map(l => lessonRow(l, true)).join('')}</div></section>
+    <div class="row gap tz-more">${t.write ? `<button class="btn ghost grow" data-act="write" data-id="${t.write}">✍️ Escríbelo</button>` : ''}${t.pron ? `<button class="btn ghost grow" data-act="psession" data-g="${t.pron}">🎙️ Pronuncia la ${t.pron === 'ed' ? '‑ed' : '‑s'}</button>` : ''}</div>
+    <button class="btn ghost wide" data-act="verbs">📒 Ver los verbos regulares e irregulares</button>`;
+}
+/* Versión corta en una hoja: para abrirla desde Escribir sin perder lo que estás haciendo */
+function tenseSheet(id) {
+  const t = TENSE_MAP[id]; if (!t) return;
+  const tb = t.tables[0];
+  openSheet(`${sheetHead(`${t.icon} ${esc(t.title)}`)}<p class="muted small">${esc(t.short)}</p>
+    <div class="card tz-formula"><span class="label">Cómo se forma</span><b>${esc(t.formula)}</b></div>
+    <span class="label tz-label">${esc(tb.title)}</span>
+    ${tb.rows.filter((r, i) => i === 0 || i === 2).map(r => `<div class="tz-row"><span class="tz-p">${esc(r[0])}</span><span class="grow"><b>${tapText(r[1])}</b><small class="muted block">${esc(r[2])} · ${esc(r[3])}</small></span>${sayBtn(r[1], 'sm')}</div>`).join('')}
+    <span class="label tz-label">Errores típicos</span>${t.mistakes.slice(0, 3).map(mistakeHTML).join('')}
+    ${W || L ? '' : `<button class="btn primary wide" data-act="tense" data-id="${id}">Ver la ficha completa</button>`}`, 'tense');
+}
+/* Qué tiempo verbal repasar según el error al escribir (reglas de la app o lo que dijo Claude) */
+function errTense(e) {
+  if (e.tense && TENSE_MAP[e.tense]) return e.tense;
+  if (e.rule === 'past-time') return 'past';
+  if (e.rule === 'he-s') return 'pres';
+  if (e.rule === 'did-base') return /«did/i.test(e.es || '') ? 'past' : 'pres';
+  if (/^modal-/.test(e.rule || '')) return /«(will|won't)/i.test(e.es || '') ? 'fut' : '';
+  if (e.rule === 'be-agr') return /^(was|were)$/i.test(e.right || '') ? 'past' : 'pres';
+  return '';
+}
+const tenseLink = e => { const t = errTense(e); return t ? `<button class="link-inline small tz-link" data-act="tensesheet" data-id="${t}">📖 Repasa el ${esc(tenseName(t).toLowerCase())}</button>` : ''; };
+
+/* ===== VERBOS REGULARES E IRREGULARES ===== */
+const VERB_PATTERNS = {
+  aaa: ['Las 3 iguales', 'La base, el pasado y el participio son iguales: cut – cut – cut'],
+  abb: ['Pasado = participio', 'El pasado y el participio son iguales: buy – bought – bought'],
+  aba: ['Base = participio', 'El participio es igual a la base: come – came – come'],
+  abc: ['Las 3 distintas', 'Las tres formas cambian: go – went – gone']
+};
+const IRR = VERB_IRR.map(([b, past, part, es, ex, exEs]) => {
+  const p1 = past.split(' / ')[0], q1 = part.split(' / ')[0];
+  return { b, past, part, es, ex, exEs, common: !!ex, both: / \/ /.test(past) && b !== 'be',
+    pat: p1 === b && q1 === b ? 'aaa' : p1 === q1 ? 'abb' : q1 === b ? 'aba' : 'abc' };
+});
+const IRR_MAP = new Map(IRR.map(v => [v.b, v]));
+const REG_MAP = new Map(VERB_REG.map(([b, es]) => [b, { b, es, reg: true, common: true }]));
+/* Ortografía de los regulares (comprobada con las formas del diccionario) */
+const DOUBLE2 = /^(admit|commit|permit|omit|submit|prefer|refer|occur|regret|control|transfer|equip|compel|patrol|propel|rebel|repel|expel|confer|defer|deter|incur|recur|acquit|forbid|begin|forget|upset|format|embed|unplug|kidnap|worship)$/;
+const dblLast = w => (/^([^aeiou]*|[^aeiou]*qu)[aeiou][^aeiouwxy]$/.test(w) && !/^[^aeiou]*[aeiou]{2}/.test(w)) || DOUBLE2.test(w);
+const edOf = w => w.endsWith('e') ? w + 'd' : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + 'ied' : dblLast(w) ? w + w.slice(-1) + 'ed' : /c$/.test(w) ? w + 'ked' : w + 'ed';
+const ingOf = w => w === 'be' ? 'being' : /ie$/.test(w) ? w.slice(0, -2) + 'ying' : /[^eoy]e$/.test(w) ? w.slice(0, -1) + 'ing' : dblLast(w) ? w + w.slice(-1) + 'ing' : /c$/.test(w) ? w + 'king' : w + 'ing';
+/* Cómo suena la -ed: «id» después de t / d, «t» después de sonidos sordos, «d» en los demás */
+const edSound = w => /[td]e?$/.test(w) ? 'id' : /(p|k|f|sh|ch|x|ss|ce|ke|pe|gh)$/.test(w) ? 't' : /se$/.test(w) ? '' : 'd';
+const ED_SOUND = { t: ['«t»', 'worked', 'stopped', 'washed', 'después de p, k, f, s, sh, ch o x'], d: ['«d»', 'played', 'lived', 'cleaned', 'después de los demás sonidos'], id: ['«id»', 'wanted', 'needed', 'visited', 'solo después de t o d: se agrega una sílaba'] };
+/* El resto de los regulares viene del diccionario (se carga aparte) */
+function regAll() {
+  if (!DICT) return null;
+  if (regAll.list) return regAll.list;
+  const inf = s => /^[a-záéíóúñ]+(ar|er|ir|ír)(se)?\b/i.test(s);
+  regAll.list = DICT.words.filter(r => /(^|\/)v(\/|$)/.test(r[1]) && /^[a-z]+$/.test(r[0]) && !DICT.irr[r[0]] && !REG_MAP.has(r[0]) && !IRR_MAP.has(r[0]) && r[0] !== 'underlie')
+    .map(r => { const s = r[2].split(/;\s*/).map(x => x.trim()), es = s.find(inf) || (/^v/.test(r[1]) ? s[0] : ''); return es ? { b: r[0], es, reg: true } : null; }).filter(Boolean);
+  return regAll.list;
+}
+const findVerb = b => IRR_MAP.get(b) || REG_MAP.get(b) || (regAll() || []).find(v => v.b === b);
+function verbForms(v) {
+  if (typeof v === 'string') v = findVerb(v);
+  if (!v) return null;
+  const reg = !!v.reg;
+  return { ...v, reg, third: thirdPerson(v.b), past: reg ? edOf(v.b) : v.past, part: reg ? edOf(v.b) : v.part, ing: ingOf(v.b) };
+}
+let verbSeg = 'irr', verbPat = '', verbSearch = '', verbsBack = 'lessons';
+function renderVerbs() {
+  if (verbSeg === 'reg' && !DICT) loadDict().then(() => { const l = $('#verbList'); if (tab === 'verbs' && l) l.innerHTML = verbListHTML(); }).catch(() => {});
+  const sounds = Object.values(ED_SOUND);
+  return topBar('Verbos', `<button class="icon-btn" data-act="tab" data-tab="${verbsBack}" aria-label="Cerrar">${ic('x')}</button>`) + `
+    <p class="muted small">Cada verbo con todas sus formas: base, he / she, pasado, participio y -ing. Toca uno para escucharlo y verlo en cada tiempo.</p>
+    <button class="card action-card" data-act="lesson" data-id="verbs"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Practicar pasado y participio</b><small class="muted block">20 preguntas con los irregulares más usados${weakVerbs(1).length ? ' · primero los que más te cuestan' : ''}</small></span>${ic('play', 'sm accent')}</button>
+    <div class="seg"><button class="${verbSeg === 'irr' ? 'on' : ''}" data-act="vseg" data-v="irr">🔀 Irregulares</button><button class="${verbSeg === 'reg' ? 'on' : ''}" data-act="vseg" data-v="reg">✅ Regulares</button></div>
+    ${verbSeg === 'irr' ? `<div class="chips">${[['', 'Todos'], ...Object.entries(VERB_PATTERNS).map(([k, [t]]) => [k, t])].map(([k, t]) => `<button class="lvl-chip ${verbPat === k ? 'on' : ''}" data-act="vpat" data-v="${k}">${t}</button>`).join('')}</div>
+      <p class="muted small">${verbPat ? `${esc(VERB_PATTERNS[verbPat][1])}. <button class="link-inline" data-act="lesson" data-id="verbs-${verbPat}">Practicar este grupo</button>` : 'Los irregulares no siguen la regla del -ed: hay que aprenderlos. Agrupados por patrón se memorizan más fácil.'}</p>`
+    : `<section class="card"><h2>✏️ Cómo se forma el pasado</h2>${TENSE_MAP.past.rules.slice(0, 4).map(([r, ex]) => `<div class="tz-rule"><b>${esc(r)}</b><span class="muted small block">${esc(ex)}</span></div>`).join('')}
+        <p class="small tz-note">💡 En los regulares, el participio es igual al pasado: work – worked – worked.</p></section>
+      <section class="card"><h2>🔊 Cómo suena la -ed</h2>${sounds.map(([s, a, b, c, when]) => `<div class="tz-rule"><b>Suena ${s}</b><span class="muted small block">${when}</span><div class="word-chips left">${[a, b, c].map(w => `<button class="word-chip" data-act="say" data-t="${w}"><b>${w}</b></button>`).join('')}</div></div>`).join('')}
+        <button class="btn ghost wide" data-act="psession" data-g="ed">🎙️ Practicar la -ed en voz alta</button></section>`}
+    <input id="vq" class="v-search" type="search" placeholder="Buscar en inglés o en español…" value="${esc(verbSearch)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div id="verbList">${verbListHTML()}</div>`;
+}
+function verbListHTML() {
+  const q = deaccent(verbSearch.trim());
+  const list = (verbSeg === 'irr' ? IRR.filter(v => !verbPat || v.pat === verbPat) : [...REG_MAP.values(), ...(regAll() || [])]).map(verbForms)
+    .filter(f => !q || f.b.startsWith(q) || f.past.includes(q) || f.part.includes(q) || deaccent(f.es).includes(q));
+  if (!list.length) return `<p class="muted center small">No encontré «${esc(verbSearch)}» entre los ${verbSeg === 'irr' ? 'irregulares. Prueba en ✅ Regulares.' : 'regulares. Prueba en 🔀 Irregulares.'}</p>`;
+  const head = '<div class="vrow vhead"><span>Base</span><span>Pasado</span><span>Participio</span></div>';
+  const row = f => `<button class="vrow" data-act="verb" data-v="${esc(f.b)}"><span><b>${esc(f.b)}</b><small class="muted block">${esc(f.es)}</small></span><span>${esc(f.past)}</span><span>${esc(f.part)}</span></button>`;
+  const common = list.filter(f => f.common), rest = list.filter(f => !f.common).sort((a, b) => a.b.localeCompare(b.b));
+  return `${common.length ? `<section class="card vcard"><h2>⭐ Los más usados</h2>${head}${common.map(row).join('')}</section>` : ''}
+    ${rest.length ? `<section class="card vcard"><h2>${verbSeg === 'irr' ? 'Otros irregulares' : 'Más verbos regulares'} (${rest.length})</h2>${head}${rest.map(row).join('')}</section>`
+      : verbSeg === 'reg' && !DICT ? '<p class="muted small center">Cargando más verbos…</p>' : ''}`;
+}
+/* Hoja de un verbo: sus formas con audio, cómo se usa en cada tiempo y agregarlo a tarjetas */
+function openVerb(b) {
+  const f = verbForms(b); if (!f) return;
+  const p1 = f.past.split(' / ')[0], q1 = f.part.split(' / ')[0], snd = f.reg ? edSound(f.b) : '';
+  const uses = f.b === 'be' ? [['pres', 'I am · she is · they are'], ['prog', "I'm being"], ['past', 'I was · they were'], ['pastprog', 'I was being'], ['fut', "I'll be · I'm going to be"], ['perf', "I've been"]]
+    : [['pres', `I ${f.b} · she ${f.third}`], ['prog', `I'm ${f.ing}`], ['past', `I ${p1}`], ['pastprog', `I was ${f.ing}`], ['fut', `I'll ${f.b} · I'm going to ${f.b}`], ['perf', `I've ${q1}`]];
+  const card = `${f.b} – ${p1} – ${q1}`;
+  openSheet(`${sheetHead(`${f.reg ? '✅' : '🔀'} ${esc(f.b)}`)}<p class="wd-es">${esc(f.es)}</p>
+    <p class="muted small">${f.reg ? 'Verbo regular: el pasado y el participio terminan en -ed.' : `Verbo irregular · ${esc(VERB_PATTERNS[f.pat][0].toLowerCase())}${f.both ? ' (también se usa la forma regular con -ed)' : ''}.`}</p>
+    <div class="vforms">${[['Base', f.b], ['He / she', f.b === 'be' ? 'is' : f.third], ['Pasado', f.past], ['Participio', f.part], ['-ing', f.ing]].map(([l, w]) => `<div class="vform"><small class="muted">${l}</small><b>${esc(w)}</b>${sayBtn(w.replace(' / ', ', '), 'sm')}</div>`).join('')}</div>
+    ${snd ? `<p class="small cl-note">🔊 La -ed de «${esc(p1)}» suena ${ED_SOUND[snd][0]}.</p>` : ''}
+    ${f.ex ? `<div class="wd-ex">${sayBtn(f.ex, 'sm')}<div class="grow"><div>${tapText(f.ex)}</div><div class="muted small">${esc(f.exEs)}</div></div></div>` : ''}
+    <span class="label tz-label">En cada tiempo</span>
+    ${uses.map(([t, s]) => `<div class="vt-row"><button class="tz-tag" data-act="tense" data-id="${t}">${esc(tenseName(t).split(':')[0])}</button><span class="grow">${tapText(s)}</span>${sayBtn(s.replace(/ · /g, '. '), 'sm')}</div>`).join('')}
+    ${S.cards[card] ? '<p class="center"><span class="add-btn added">✓ Está en tus tarjetas</span></p>' : `<button class="btn ghost wide" data-act="vcard" data-v="${esc(f.b)}">🃏 Agregar a tarjetas: ${esc(card)}</button>`}`, 'verb');
+}
+/* Práctica: el pasado y el participio de los irregulares, primero los que más fallas */
+function weakVerbs(n = 3) {
+  const sc = f => f ? f.fail - f.ok * 0.5 : 0;
+  return Object.entries(S.verbs).filter(([b]) => IRR_MAP.has(b)).map(([b, v]) => ({ b, w: Math.max(sc(v.past), sc(v.part)), form: sc(v.part) > sc(v.past) ? 'part' : 'past', last: v.last || 0 }))
+    .filter(x => x.w > 0).sort((a, b) => b.w - a.w || b.last - a.last).slice(0, n);
+}
+function verbQ(v, form) {
+  const right = form === 'past' ? v.past : v.part, other = form === 'past' ? v.part : v.past;
+  const bad = [v.b === 'be' ? 'beed' : edOf(v.b), other, v.b === 'be' ? 'is' : thirdPerson(v.b), v.b, ingOf(v.b)].filter((o, i, a) => o !== right && a.indexOf(o) === i);
+  return { type: 'choice', track: 'verbs', verb: v.b, form, prompt: `¿Cuál es el <b>${form === 'past' ? 'pasado' : 'participio'}</b>? <span class="muted small">(${esc(v.es)})</span>`,
+    big: v.b, say: v.b, answer: right, options: shuffle([right, ...bad.slice(0, 3)]), en: `${v.b} – ${v.past} – ${v.part}`, es: v.es,
+    explain: `${v.b} – ${v.past} – ${v.part}${form === 'part' ? ` · El participio va con have / has: «I have ${v.part.split(' / ')[0]}».` : ''}` };
+}
+function verbLesson(id) {
+  const pat = id.split('-')[1] || '';
+  const pool = IRR.filter(v => !v.both && v.b !== 'lie' && (pat ? v.pat === pat : v.common));
+  if (!pool.length) return null;
+  const weak = new Set(weakVerbs(10).map(x => x.b));
+  const pick10 = [...pool.filter(v => weak.has(v.b)), ...shuffle(pool.filter(v => !weak.has(v.b) && !S.verbs[v.b])), ...shuffle(pool.filter(v => !weak.has(v.b) && S.verbs[v.b]))].slice(0, 10);
+  return { id, title: pat ? `Irregulares: ${VERB_PATTERNS[pat][0].toLowerCase()}` : 'Pasado y participio', icon: '🔀', back: 'verbs', noCards: true, words: [], sentences: [],
+    tip: 'Elige la forma correcta de cada verbo. Las que fallas se repiten al final, y las que más te cuestan vuelven en «Mis errores».',
+    verbQs: noRepeats(shuffle(pick10.flatMap(v => [verbQ(v, 'past'), verbQ(v, 'part')]))) };
+}
+/* Verbo del día (en Inicio): uno de los irregulares más usados */
+function verbOfDayHTML() {
+  const pool = IRR.filter(v => v.common), v = pool[hash('verbo-' + dayStr()) % pool.length];
+  return `<section class="card wod"><div class="row between"><span class="label">🔀 Verbo del día</span><span class="muted small">${esc(VERB_PATTERNS[v.pat][0].toLowerCase())}</span></div>
+    <div class="row gap-s"><b class="wod-word vod-word grow">${esc(v.b)} · ${esc(v.past)} · ${esc(v.part)}</b>${sayBtn(`${v.b}, ${v.past.replace(' / ', ', ')}, ${v.part.replace(' / ', ', ')}`)}</div><div class="wd-es">${esc(v.es)}</div>
+    <div class="wd-ex">${sayBtn(v.ex, 'sm')}<div class="grow"><div>${tapText(v.ex)}</div><div class="muted small">${esc(v.exEs)}</div></div></div>
+    <button class="btn ghost wide" data-act="verb" data-v="${esc(v.b)}">Ver todas sus formas</button></section>`;
+}
+
 /* ===== ESTADÍSTICAS ===== */
 function optionEs(d, en) {
   if (!d) return '';
@@ -2051,6 +2282,7 @@ function renderStats() {
   <section class="card"><h2>🎯 Precisión por ejercicio</h2>
     ${types.length ? types.map(([k, label]) => { const t = S.types[k], p = pct(t.ok, t.ok + t.fail); return `<div class="type-row"><div class="row between"><span>${label}</span><span class="muted small">${p}% · ${t.ok + t.fail} intentos</span></div><div class="bar thin ${p < 60 ? 'low' : ''}"><i style="width:${p}%"></i></div></div>`; }).join('') : '<p class="muted small">Completa una lección para ver tus estadísticas.</p>'}
   </section>
+  ${tensesStatsHTML()}
   <section class="card"><h2>🔴 Lo que más te cuesta</h2>
     ${weak.length ? weak.map(i => `<div class="word-row">${sayBtn(i.en, 'sm')}<div class="grow"><b>${tapText(i.en)}</b><span class="muted small block">${esc(i.es)}</span></div><span class="score-tag bad">✗ ${i.fail}</span><span class="score-tag good">✓ ${i.ok}</span></div>`).join('')
       + `<button class="btn primary wide" data-act="lesson" data-id="auto">🎯 Practicar mis errores</button>` : '<p class="muted small">¡Aún no hay errores registrados! 🌟</p>'}
@@ -2061,11 +2293,24 @@ function renderStats() {
   ${sounds.length ? `<section class="card"><h2>🎤 Palabras a mejorar al hablar</h2><div class="word-chips">${sounds.map(([w, p]) => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}<small>${p.n ? `${Math.round(p.sum / p.n)}% · ` : ''}${p.fail} ✗ · ${p.ok} ✓</small></button>`; }).join('')}</div></section>` : ''}
   ${ps.length ? `<section class="card"><h2>🎙️ Sesiones de pronunciación</h2><p class="muted small">${ps.length} ${ps.length === 1 ? 'sesión' : 'sesiones'} · promedio ${pct(ps.reduce((a, s) => a + s.avg, 0), ps.length * 100)}%</p>${ps.slice(-4).reverse().map(s => `<div class="word-row"><div class="grow"><span>${esc(s.group)}</span><span class="muted small block">${new Date(s.t).toLocaleDateString('es-CL')} · ${s.done}/${s.n} frases</span></div><span class="score-tag ${s.avg >= 70 ? 'good' : 'bad'}">${s.avg}%</span></div>`).join('')}</section>` : ''}
   ${wTexts.length ? `<section class="card"><h2>✍️ Escritura</h2><p class="muted small">${wTexts.length} ${wTexts.length === 1 ? 'texto' : 'textos'} · ${wTexts.reduce((a, e) => a + (e.words || 0), 0)} palabras · ${wTexts.filter(e => e.errors && !e.errors.length).length} sin errores</p>
-    ${wErr.length ? `<span class="label">Tus errores más frecuentes</span>${wErr.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)} · ${e.n}×${e.claude ? ' · ✨ Claude' : ''}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div></div>`).join('')}` : '<p class="muted small">¡Aún no hay errores de escritura! 🌟</p>'}
+    ${wErr.length ? `<span class="label">Tus errores más frecuentes</span>${wErr.map(e => `<div class="wfix-item"><span class="tag-type">${esc(e.type)} · ${e.n}×${e.claude ? ' · ✨ Claude' : ''}</span><div><del>${esc(e.wrong)}</del> → <ins>${esc(e.right || '(quitar)')}</ins></div><div class="small">${esc(e.es)}</div>${tenseLink(e)}</div>`).join('')}` : '<p class="muted small">¡Aún no hay errores de escritura! 🌟</p>'}
     <button class="btn ghost wide" data-act="tab" data-tab="write">✍️ Seguir escribiendo</button></section>` : ''}
   ${dWrong.length ? `<section class="card"><h2>💬 Errores en diálogos</h2>${dWrong.map(x => { const d = DIALOGS.find(y => y.id === x.id), es = optionEs(d, x.en); return `<div class="word-row"><span>${d ? d.icon : '💬'}</span><div class="grow"><span class="small">“${esc(x.en)}”</span>${es ? `<span class="muted small block">${esc(es)}</span>` : ''}<span class="muted small block">${d ? esc(d.title) : ''}</span></div><span class="score-tag bad">${x.n}×</span></div>`; }).join('')}</section>` : ''}
   <section class="card action-card"><span class="icon-bubble">${ic('upload')}</span><div class="grow"><b>Revisión con Claude</b><p class="muted small">Exporta tu progreso, guárdalo en tu PC en <b>APP 2.0\\progreso</b> y dile a Claude "revisa mi progreso".</p></div></section>
   <button class="btn primary wide" data-act="export">${ic('upload', 'sm')} Exportar progreso</button>`;
+}
+
+/* Progreso: tus tiempos verbales y tus verbos irregulares */
+function tensesStatsHTML() {
+  const rows = TENSES.map(t => ({ t, p: tenseStat(t.id), n: S.tense[t.id] ? S.tense[t.id].ok + S.tense[t.id].fail : 0 })).filter(x => x.p != null);
+  const weakest = rows.filter(x => x.p < 85).sort((a, b) => a.p - b.p)[0];
+  const vs = Object.values(S.verbs).flatMap(v => [v.past, v.part].filter(Boolean)), vOk = vs.reduce((a, f) => a + f.ok, 0), vN = vs.reduce((a, f) => a + f.ok + f.fail, 0);
+  const bar = (label, p, sub) => `<div class="type-row"><div class="row between"><span>${label}</span><span class="muted small">${p}% · ${sub}</span></div><div class="bar thin ${p < 60 ? 'low' : ''}"><i style="width:${p}%"></i></div></div>`;
+  return `<section class="card"><h2>⏳ Tus tiempos verbales</h2>
+    ${rows.length ? rows.map(x => bar(`${x.t.icon} ${esc(x.t.title)}`, x.p, `${x.n} respuestas`)).join('') : '<p class="muted small">Aún no practicas los tiempos verbales. Ahí aprendes el presente, el pasado y el futuro con mucha práctica.</p>'}
+    ${vN ? bar('🔀 Verbos irregulares', pct(vOk, vN), `${Object.keys(S.verbs).length} verbos`) : ''}
+    ${weakest ? `<button class="btn primary wide" data-act="tense" data-id="${weakest.t.id}">${weakest.t.icon} Repasar «${esc(weakest.t.title)}»</button>` : '<button class="btn primary wide" data-act="tenses">⏳ Ir a Tiempos verbales</button>'}
+    ${weakVerbs(1).length ? '<button class="btn ghost wide" data-act="lesson" data-id="verbs">🔀 Practicar los irregulares que más te cuestan</button>' : ''}</section>`;
 }
 
 /* ===== Respaldo: exportar e importar ===== */
@@ -2080,6 +2325,8 @@ function buildSummary() {
     palabras_dificiles: weakItems(30).map(i => ({ en: i.en, es: i.es, errores: i.fail, aciertos: i.ok })),
     palabras_a_mejorar_al_hablar: weakSounds(20).map(([w, p]) => ({ palabra: w, errores: p.fail, aciertos: p.ok, promedio: p.n ? Math.round(p.sum / p.n) + '%' : undefined })),
     sonidos: soundStats().map(x => ({ sonido: x.grp.title, promedio: x.avg + '%', palabras: x.words })),
+    tiempos_verbales: Object.fromEntries(TENSES.filter(t => S.tense[t.id]).map(t => { const x = S.tense[t.id]; return [t.title, { aciertos: x.ok, errores: x.fail, precision: pct(x.ok, x.ok + x.fail) + '%', practicas: `${tenseDone(t)}/${t.lessons.length}` }]; })),
+    verbos_irregulares_dificiles: weakVerbs(15).map(x => { const v = IRR_MAP.get(x.b); return { verbo: `${v.b} – ${v.past} – ${v.part}`, significado: v.es, le_cuesta: x.form === 'past' ? 'el pasado' : 'el participio' }; }),
     sesiones_pronunciacion: (S.pronSessions || []).slice(-15).map(s => ({ fecha: dayStr(new Date(s.t)), grupo: s.group, frases: `${s.done}/${s.n}`, promedio: s.avg + '%', palabras_a_practicar: s.words })),
     escritura: (() => {
       const wr = S.writing || { texts: [], errs: {} };
@@ -2161,7 +2408,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.4 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.5 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -2179,7 +2426,7 @@ const ACTIONS = {
   check: () => { if (!L) return; if (L.answered) nextExercise(); else evaluateLesson(); },
   speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; saveResume(); renderLesson(); },
   quit: () => {
-    const back = L ? 'lessons' : (D || P) ? 'talk' : W ? 'write' : 'cards';
+    const back = L ? (L.les.back || 'lessons') : (D || P) ? 'talk' : W ? 'write' : 'cards';
     /* En las lecciones no se pierde nada: el avance queda guardado */
     if (L && !L.intro) { saveResume(); if (S.resume) toast('💾 Guardé tu avance. Continúa cuando quieras.'); go(back); return; }
     if (((D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
@@ -2285,6 +2532,22 @@ const ACTIONS = {
   },
   wview: el => viewWriting(el.dataset.t),
   wpending: () => reviewPending(),
+  tenses: () => { tenseId = null; go('tenses'); },
+  tense: el => { tenseId = el.dataset.id; tenseForm = 'aff'; go('tenses'); },
+  tensehub: () => { tenseId = null; go('tenses'); },
+  tform: el => { tenseForm = el.dataset.v; render(); },
+  tensesheet: el => tenseSheet(el.dataset.id),
+  verbs: () => { if (tab !== 'verbs') verbsBack = tab === 'tenses' ? 'tenses' : 'lessons'; go('verbs'); },
+  verb: el => openVerb(el.dataset.v),
+  vseg: el => { verbSeg = el.dataset.v; verbPat = ''; render(); },
+  vpat: el => { verbPat = el.dataset.v; render(); },
+  vcard: el => {
+    const f = verbForms(el.dataset.v); if (!f) return;
+    const en = `${f.b} – ${f.past.split(' / ')[0]} – ${f.part.split(' / ')[0]}`;
+    if (!S.cards[en]) { S.cards[en] = { en, es: f.es, box: 1, due: 0, custom: true }; save(); }
+    toast('🃏 Agregada a tus tarjetas');
+    el.outerHTML = '<p class="center"><span class="add-btn added">✓ Agregada a tus tarjetas</span></p>';
+  },
   clcopy: el => copyForClaude(el.dataset.ids),
   clpaste: () => go('claude'),
   clhelp: () => claudeHelp(),
@@ -2355,6 +2618,7 @@ document.addEventListener('input', e => {
   else if (t.id === 'dictInput' && L) { L.typed = t.value; const b = $('#view [data-act="check"]'); if (b) b.disabled = !t.value.trim(); }
   else if (t.id === 'cardInput' && F) { F.typed = t.value; }
   else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
+  else if (t.id === 'vq') { verbSearch = t.value; const l = $('#verbList'); if (l) l.innerHTML = verbListHTML(); }
   else if (t.id === 'clIn') { CL.draft = t.value; CL.data = parseClaude(t.value); const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); }
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
