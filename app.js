@@ -37,7 +37,9 @@ const ICONS = {
   upload: '<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
   download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/>',
-  dict: '<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><circle cx="12" cy="9" r="3"/><path d="m14.2 11.2 2 2"/>'
+  dict: '<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><circle cx="12" cy="9" r="3"/><path d="m14.2 11.2 2 2"/>',
+  review: '<path d="M3 12a9 9 0 0 1 15.4-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16"/><path d="M3 21v-5h5"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>'
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -82,6 +84,7 @@ function track(type, en, es, ok) {
   const it = S.items[en] || (S.items[en] = { en, es: es || '', ok: 0, fail: 0, kind: tokens(en).length > 2 ? 's' : 'w', last: 0 });
   if (es && !it.es) it.es = es;
   ok ? it.ok++ : it.fail++; it.last = Date.now();
+  if (!ok) { it.f = it.f || {}; it.f[type] = (it.f[type] || 0) + 1; }   /* en qué tipo de ejercicio fallaste, para separar el Repaso */
   trackType(type, ok);
   S.log.push({ t: Date.now(), type, en, ok: ok ? 1 : 0 });
   if (S.log.length > 600) S.log.splice(0, S.log.length - 600);
@@ -174,6 +177,7 @@ function autoLesson() {
 function findLesson(id) {
   if (id === 'auto') return autoLesson();
   if (/^verbs/.test(id)) return verbLesson(id);
+  if (/^rev-/.test(id)) return reviewLesson(id);
   return allLessons().find(l => l.id === id) || TENSE_LESSONS.find(l => l.id === id) || S.packs.find(p => p.id === id);
 }
 
@@ -513,7 +517,7 @@ function wordFocusHTML(w, ctx) {
 }
 function rerenderVoice(ctx) {
   if (ctx === 'psession') { if (P) renderPronSession(); }
-  else if (tab === 'talk' && talkSeg === 'pron' && !D && !P) render();
+  else if (tab === 'talk' && !D && !P) render();
 }
 /* Promedio de tus palabras en cada sonido difícil */
 function soundStats() {
@@ -528,28 +532,43 @@ const micControls = (text, ctx) => `<div class="speak-controls">
 const sayBtn = (t, cls = '') => `<button class="say ${cls}" data-act="say" data-t="${esc(t)}" aria-label="Escuchar">${ic('volume')}</button>`;
 
 /* ===== Navegación ===== */
-let tab = 'home', talkSeg = 'dialogs', cardSeg = 'review', statSeg = 'week';
+let tab = 'home', statSeg = 'week';
 let pronCurrent = null, pronResult = null, L = null, D = null, F = null, P = null;
 const view = () => $('#view');
+/* Cada pantalla interna pertenece a un botón de la barra, para que siempre se vea dónde estás */
+const NAV_OF = { home: 'home', profile: 'home', lessons: 'lessons', review: 'review', stats: 'stats' };
+/* La ✕ de una pantalla interna vuelve a donde estabas antes de entrar */
+const PAGE_BACK = { tenses: 'lessons', verbs: 'lessons', grammar: 'lessons', talk: 'lessons', write: 'lessons', claude: 'write', mycards: 'review' };
+const pageBack = {};
+const backOf = t => pageBack[t] || PAGE_BACK[t] || 'home';
+/* Una pantalla interna se marca en el botón desde donde entraste (Escribir desde Lecciones, Mejoras de Claude desde Repaso…) */
+const navOf = (t, n = 0) => NAV_OF[t] || (n < 6 ? navOf(backOf(t), n + 1) : 'home');
+const closeBtn = () => `<button class="icon-btn" data-act="back" aria-label="Cerrar">${ic('x')}</button>`;
+/* Secciones que se despliegan en Lecciones y en Repaso: queda abierta la última que tocaste */
+const openCat = { lessons: null, review: null };
 function go(t) {
+  if (t === 'cards') t = 'review';
+  if (PAGE_BACK[t] && t !== tab && pageBack[tab] !== t) pageBack[t] = tab;
   tab = t; L = null; D = null; F = null; P = null; W = null;
   if (SHEET.open) closeSheet();
   document.body.classList.remove('focus');
   try { rec && rec.abort(); } catch (e) {}
-  render(); window.scrollTo(0, 0);
+  render();
+  const c = openCat[t] && $(`#cat-${openCat[t]}`);
+  window.scrollTo(0, c ? Math.max(0, c.getBoundingClientRect().top + window.scrollY - 12) : 0);
 }
 function render() {
   rollover();
-  document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, cards: renderCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude, tenses: renderTenses, verbs: renderVerbs })[tab]();
+  const nav = navOf(tab);
+  document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === nav));
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, review: renderReview, mycards: renderMyCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude, tenses: renderTenses, verbs: renderVerbs })[tab]();
   if (tab === 'home') fillWod();
 }
 function renderNav() {
   $('#tabs').innerHTML = `
     <button data-act="tab" data-tab="home">${ic('home')}<span>Inicio</span></button>
     <button data-act="tab" data-tab="lessons">${ic('book')}<span>Lecciones</span></button>
-    <button class="fab-tab" data-act="tab" data-tab="talk" aria-label="Hablar"><span class="fab">${ic('mic')}</span></button>
-    <button data-act="tab" data-tab="cards">${ic('cards')}<span>Tarjetas</span></button>
+    <button data-act="tab" data-tab="review">${ic('review')}<span>Repaso</span></button>
     <button data-act="tab" data-tab="stats">${ic('chart')}<span>Progreso</span></button>`;
 }
 function toast(msg) {
@@ -660,10 +679,10 @@ function installTip() {
 function sectionStats() {
   const ls = allLessons(), phrases = allPhrases(), cards = Object.values(S.cards);
   return [
-    { tab: 'lessons', icon: 'book', title: 'Lecciones', p: pct(ls.filter(l => S.done[l.id]).length, ls.length) },
-    { tab: 'talk', seg: 'dialogs', icon: 'chat', title: 'Diálogos', p: pct(DIALOGS.filter(d => S.dialogs[d.id]).length, DIALOGS.length) },
-    { tab: 'talk', seg: 'pron', icon: 'mic', title: 'Pronunciación', p: pct(phrases.filter(p => (S.pron[p] || 0) >= 70).length, phrases.length) },
-    { tab: 'cards', icon: 'cards', title: 'Tarjetas', p: pct(cards.filter(c => c.box >= 4).length, cards.length) }
+    { tab: 'lessons', cat: 'course', icon: 'book', title: 'Lecciones', p: pct(ls.filter(l => S.done[l.id]).length, ls.length) },
+    { tab: 'lessons', cat: 'talk', icon: 'chat', title: 'Diálogos', p: pct(DIALOGS.filter(d => S.dialogs[d.id]).length, DIALOGS.length) },
+    { tab: 'lessons', cat: 'talk', icon: 'mic', title: 'Pronunciación', p: pct(phrases.filter(p => (S.pron[p] || 0) >= 70).length, phrases.length) },
+    { tab: 'review', cat: 'cards', icon: 'cards', title: 'Tarjetas', p: pct(cards.filter(c => c.box >= 4).length, cards.length) }
   ];
 }
 function resumeCard() {
@@ -693,10 +712,10 @@ function renderHome() {
   ${verbOfDayHTML()}
   <div class="row between section-title"><h2>Tus secciones</h2></div>
   <div class="grid2">${sectionStats().map(s => `
-    <button class="sec-card" data-act="tab" data-tab="${s.tab}" ${s.seg ? `data-seg2="${s.seg}"` : ''}>
+    <button class="sec-card" data-act="tab" data-tab="${s.tab}" data-cat="${s.cat}">
       <span class="sec-ring" style="--p:${s.p}"><span>${ic(s.icon)}</span></span>
       <b>${s.title}</b><small>${s.p}% completado</small></button>`).join('')}</div>
-  <button class="card action-card" data-act="tab" data-tab="write"><span class="icon-bubble">✍️</span><span class="grow"><b>Escribir en inglés</b><small class="muted block">${(S.writing && S.writing.texts.length) ? `${S.writing.texts.length} textos escritos · ` : ''}Temas guiados con corrección en español</small></span>${ic('play', 'sm accent')}</button>
+  <button class="card action-card" data-act="tab" data-tab="lessons" data-cat="write"><span class="icon-bubble">✍️</span><span class="grow"><b>Escribir en inglés</b><small class="muted block">${(S.writing && S.writing.texts.length) ? `${S.writing.texts.length} textos escritos · ` : ''}Temas guiados con corrección en español</small></span>${ic('play', 'sm accent')}</button>
   <button class="card action-card" data-act="tenses"><span class="icon-bubble">⏳</span><span class="grow"><b>Tiempos verbales</b><small class="muted block">Presente, pasado y futuro, con mucha práctica</small></span>${ic('play', 'sm accent')}</button>
   <section class="card row goal-card">${ring(goalPct, `${S.dailyXp}/${S.goal}`)}<div class="grow"><b>Meta diaria</b><p class="muted small">${goalPct >= 100 ? '¡Cumplida! ✅ Sigue sumando para la liga.' : `Te faltan ${S.goal - S.dailyXp} XP para hoy.`}</p></div></section>
   ${weak >= 3 ? `<button class="card action-card" data-act="lesson" data-id="auto"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Practica tus errores</b><small class="muted block">${weak} palabras y frases para reforzar</small></span>${ic('play', 'sm accent')}</button>` : ''}
@@ -707,40 +726,101 @@ function renderHome() {
 
 /* ===== LECCIONES ===== */
 function lessonUnlocked(id) { const all = allLessons(), i = all.findIndex(l => l.id === id); return i <= 0 || !!S.done[all[i - 1].id]; }
-function lessonRow(l, un, extra = '') {
+const starsOf = l => { const st = S.done[l.id] || 0; return `<span class="stars">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>`; };
+const hereTag = '<span class="here-tag">📍 Sigues aquí</span>';
+function lessonRow(l, un, extra = '', here = false) {
   const st = S.done[l.id] || 0;
-  return `<button class="lesson ${un ? '' : 'locked'} ${st ? 'done' : ''}" ${un ? `data-act="lesson" data-id="${l.id}"` : 'disabled'}>
+  return `<button class="lesson ${un ? '' : 'locked'} ${st ? 'done' : ''} ${here && un ? 'here' : ''}" ${un ? `data-act="lesson" data-id="${l.id}"` : 'disabled'}>
     <span class="lesson-icon">${un ? l.icon : '🔒'}</span>
-    <span class="lesson-info grow"><b>${esc(l.title)}</b>${extra || `<span class="stars">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>`}</span>
+    <span class="lesson-info grow">${here && un ? hereTag : ''}<b>${esc(l.title)}</b>${extra || starsOf(l)}</span>
     ${un ? ic('play', 'sm accent') : ''}</button>`;
 }
-function renderLessons() {
-  const auto = autoLesson();
-  const refuerzo = (auto || S.packs.length) ? `<section class="unit"><div class="unit-head"><span class="badge warm">Refuerzo</span><h2>Para ti</h2></div><div class="path">
-    ${auto ? lessonRow(auto, true, `<span class="muted small">${auto.count} ${auto.count === 1 ? 'palabra o frase' : 'palabras y frases'} para reforzar</span>`) : ''}
-    ${S.packs.map(p => `<div class="pack-row">${lessonRow(p, true, `<span class="muted small">${esc(p.note || 'Refuerzo preparado por Claude')}</span>`)}<button class="icon-btn sm" data-act="delpack" data-id="${esc(p.id)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}
-  </div></section>` : '';
-  return topBar('Lecciones', `<div class="pill">📚 ${allLessons().filter(l => S.done[l.id]).length}/${allLessons().length}</div>`) + resumeCard()
-    + `<button class="card action-card tz-feature" data-act="tenses"><span class="icon-bubble">⏳</span><span class="grow"><b>Tiempos verbales</b><small class="muted block">Presente, pasado y futuro · ${TENSE_LESSONS.filter(l => S.done[l.id]).length}/${TENSE_LESSONS.length} prácticas</small></span>${ic('play', 'sm accent')}</button>
-      <div class="grid2"><button class="sec-card topic" data-act="verbs"><span class="topic-icon">📒</span><b>Verbos</b><small>Regulares e irregulares</small></button><button class="sec-card topic" data-act="tab" data-tab="grammar"><span class="topic-icon">📖</span><b>Gramática</b><small>Todos los tips</small></button></div>`
-    + levelChips() + refuerzo +
-    LESSONS.map(u => {
-      const done = u.lessons.filter(l => S.done[l.id]).length;
-      return `<section class="unit" data-level="${u.level}"><div class="unit-head"><span class="badge">${u.level}</span><h2 class="grow">${esc(u.unit)}</h2><span class="muted small">${done}/${u.lessons.length}</span></div>
-      <div class="path">${u.lessons.map(l => lessonRow(l, lessonUnlocked(l.id))).join('')}</div></section>`;
-    }).join('');
+/* Una sección que se despliega: cerrada muestra tu avance, abierta muestra todo su contenido */
+function catHTML(page, id, icon, title, sub, p, body) {
+  const open = openCat[page] === id;
+  return `<section class="cat ${open ? 'open' : ''}" id="cat-${id}"><button class="cat-head" data-act="cat" data-page="${page}" data-id="${id}" aria-expanded="${open}">
+    <span class="cat-icon">${icon}</span><span class="grow"><b>${title}</b><small class="muted block">${sub}</small>${p != null ? `<span class="bar thin"><i style="width:${p}%"></i></span>` : ''}</span>${ic('chev', 'cat-chev')}</button>
+    ${open ? `<div class="cat-body">${body()}</div>` : ''}</section>`;
 }
-/* Saltar a un nivel (A1, A2, B1…) en la lista de lecciones */
-function levelChips() {
-  const levels = [...new Set(LESSONS.map(u => u.level))];
-  return levels.length > 2 ? `<div class="chips">${levels.map(l => `<button class="lvl-chip" data-act="jumplevel" data-v="${l}">${l}</button>`).join('')}</div>` : '';
+const catLink = (attrs, icon, title, sub) => `<section class="cat"><button class="cat-head" ${attrs}><span class="cat-icon">${icon}</span><span class="grow"><b>${title}</b><small class="muted block">${sub}</small></span>${ic('play', 'sm accent')}</button></section>`;
+const subLabel = t => `<span class="label cat-label">${t}</span>`;
+/* Una fila que lleva a otra pantalla o empieza una actividad */
+const goRow = (attrs, icon, title, sub) => `<button class="lesson go-row" ${attrs}><span class="lesson-icon">${icon}</span><span class="lesson-info grow"><b>${title}</b>${sub ? `<span class="muted small">${sub}</span>` : ''}</span>${ic('play', 'sm accent')}</button>`;
+let courseLevel = null;
+function renderLessons() {
+  const ls = allLessons();
+  return topBar('Lecciones', `<div class="pill">📚 ${ls.filter(l => S.done[l.id]).length}/${ls.length}</div>`) + resumeCard()
+    + `<div class="cats">${courseCat()}${TZ_GROUPS.map(tzGroupCat).join('')}${tzMixCat()}${verbsCat()}${talkCat()}${writeCat()}
+      ${catLink('data-act="tab" data-tab="grammar"', '📖', 'Gramática', 'Todos los tips de las lecciones y de los tiempos verbales')}</div>`;
+}
+/* Curso: se elige el nivel arriba y se ven sus unidades; se abre solo en el nivel donde vas */
+function courseCat() {
+  const ls = allLessons(), done = ls.filter(l => S.done[l.id]).length, nx = ls.find(l => !S.done[l.id]);
+  const nu = nx && LESSONS.find(u => u.lessons.includes(nx));
+  return catHTML('lessons', 'course', '📚', 'Curso por niveles', nx ? `${done}/${ls.length} lecciones · vas en ${nu.level}: ${esc(nu.unit)}` : '🎓 ¡Completaste todas las lecciones!', pct(done, ls.length), () => {
+    const levels = [...new Set(LESSONS.map(u => u.level))], lv = levels.includes(courseLevel) ? courseLevel : nu ? nu.level : levels[levels.length - 1];
+    return `<div class="chips">${levels.map(l => { const full = LESSONS.filter(u => u.level === l).every(u => u.lessons.every(x => S.done[x.id])); return `<button class="lvl-chip ${l === lv ? 'on' : ''}" data-act="clevel" data-v="${l}">${l}${full ? ' ✓' : ''}</button>`; }).join('')}</div>`
+      + LESSONS.filter(u => u.level === lv).map(u => `<div class="unit-head cat-unit"><span class="badge">${u.level}</span><h3 class="grow">${esc(u.unit)}</h3><span class="muted small">${u.lessons.filter(l => S.done[l.id]).length}/${u.lessons.length}</span></div>
+        <div class="path">${u.lessons.map(l => lessonRow(l, lessonUnlocked(l.id), '', l === nx)).join('')}</div>`).join('');
+  });
+}
+/* Presente, pasado y futuro: sus fichas y todas sus prácticas juntas */
+function tzGroupCat(g) {
+  const les = tzGroupLessons(g), done = les.filter(l => S.done[l.id]).length, acc = tzGroupAcc(g.tenses), nx = les.find(l => !S.done[l.id]);
+  return catHTML('lessons', 'tz-' + g.id, g.icon, g.title, `${g.sub}<br>${done}/${les.length} prácticas${acc != null ? ` · ${acc}% de aciertos` : ''}`, pct(done, les.length), () =>
+    subLabel('📖 Fichas de cada tiempo')
+    + `<div class="path">${g.tenses.map(id => { const t = TENSE_MAP[id], p = tenseStat(id); return goRow(`data-act="tense" data-id="${id}"`, t.icon, esc(t.title), `Tabla, usos y errores típicos${p != null ? ` · ${p}% de aciertos` : ''}`); }).join('')}</div>`
+    + subLabel('🎯 Prácticas de 20 ejercicios')
+    + `<div class="path">${les.map(l => lessonRow(l, true, l.mix ? `${starsOf(l)} <span class="muted small">· 🔀 Mezcla</span>` : '', l === nx)).join('')}</div>`);
+}
+function tzMixCat() {
+  const all = TENSE_LESSONS.find(l => l.id === 'tz-mix-all');
+  return catHTML('lessons', 'tz-mix', '🔀', 'Mezclar los tiempos', `¿Qué tiempo uso? y práctica con presente, pasado y futuro juntos${all && S.done[all.id] ? ' · ✅' : ''}`, null, () =>
+    (all ? `<div class="path">${lessonRow(all, true, '', !S.done[all.id])}</div>` : '')
+    + subLabel('🧭 ¿Qué tiempo uso?') + '<p class="muted small">Pregúntate esto sobre lo que quieres decir:</p>'
+    + TENSE_GUIDE.map(([q, id, ex]) => `<button class="tz-guide" data-act="tense" data-id="${id}"><span class="grow"><b>${esc(q)}</b><small class="block">→ ${esc(tenseName(id))} · <i>${esc(ex)}</i></small></span>${ic('play', 'sm accent')}</button>`).join('')
+    + subLabel('🔁 Un verbo en todos los tiempos')
+    + TENSE_COMPARE.map(([id, en, es]) => `<div class="word-row">${sayBtn(en.replace(' · ', '. '), 'sm')}<div class="grow"><b>${tapText(en)}</b><span class="muted small block">${esc(es)}</span></div><button class="tz-tag" data-act="tense" data-id="${id}">${esc(tenseName(id).split(':')[0])}</button></div>`).join(''));
+}
+function verbsCat() {
+  const vs = Object.values(S.verbs).flatMap(v => [v.past, v.part].filter(Boolean)), ok = vs.reduce((a, f) => a + f.ok, 0), n = vs.reduce((a, f) => a + f.ok + f.fail, 0);
+  const practiced = Object.keys(S.verbs).filter(b => IRR_MAP.has(b)).length;
+  return catHTML('lessons', 'verbs', '📒', 'Verbos', `Regulares e irregulares · ${practiced}/${IRR.length} irregulares practicados${n ? ` · ${pct(ok, n)}% de aciertos` : ''}`, pct(practiced, IRR.length), () =>
+    `<div class="path">${goRow('data-act="verbs" data-seg="irr"', '🔀', 'Tabla de verbos irregulares', `Los ${IRR.length} irregulares con sus formas, agrupados por patrón`)}
+      ${goRow('data-act="verbs" data-seg="reg"', '✅', 'Verbos regulares', 'Cómo se forma el pasado con -ed y cómo suena')}</div>`
+    + subLabel('🎯 Practicar pasado y participio')
+    + `<div class="path">${lessonRow({ id: 'verbs', icon: '🎯', title: 'Los irregulares más usados' }, true, '<span class="muted small">20 preguntas · primero los que más fallas</span>')}
+      ${Object.entries(VERB_PATTERNS).map(([k, [t, d]]) => lessonRow({ id: 'verbs-' + k, icon: '🔀', title: t }, true, `<span class="muted small">${esc(d.split(': ').pop())}</span>`)).join('')}</div>`);
+}
+function talkCat() {
+  const dDone = DIALOGS.filter(d => S.dialogs[d.id]).length, phrases = allPhrases(), pGood = phrases.filter(p => (S.pron[p] || 0) >= 70).length;
+  const snd = Object.fromEntries(soundStats().map(x => [x.id, x.avg])), nx = DIALOGS.find(d => !S.dialogs[d.id]);
+  return catHTML('lessons', 'talk', '💬', 'Hablar', `Diálogos y pronunciación<br>${dDone}/${DIALOGS.length} diálogos · ${pGood}/${phrases.length} frases bien dichas`, pct(dDone, DIALOGS.length), () =>
+    subLabel('💬 Diálogos') + '<p class="muted small">Según lo que respondas, la historia cambia. ¡Descubre todos los finales!</p><div class="path">'
+    + DIALOGS.map(d => { const here = d === nx, ok = S.dialogs[d.id];
+      return `<div class="lesson dlg-row ${ok ? 'done' : ''} ${here ? 'here' : ''}"><span class="lesson-icon">${d.icon}</span><span class="lesson-info grow">${here ? hereTag : ''}<b>${esc(d.title)}${ok ? ' ✅' : ''}</b><span class="muted small">${d.level} · 🧭 Finales ${(S.ends[d.id] || []).length}/${dialogEnds(d).length}</span>
+        <span class="dlg-btns"><button class="add-btn" data-act="dialog" data-id="${d.id}" data-mode="choose">👆 Elegir</button><button class="add-btn strong" data-act="dialog" data-id="${d.id}" data-mode="speak">🎤 Hablar</button></span></span></div>`; }).join('') + '</div>'
+    + subLabel('🎤 Pronunciación')
+    + `<div class="path">${goRow('data-act="tab" data-tab="talk"', '🎙️', 'Practicar frase por frase', 'Escucha, repite y mira el % de cada palabra')}
+      ${PRON.map(c => goRow(`data-act="psession" data-g="${c.id}"`, c.icon, esc(c.title), `Sesión de 10 frases${snd[c.id] != null ? ` · tu promedio ${snd[c.id]}%` : ''}`)).join('')}</div>`);
+}
+function writeCat() {
+  const texts = (S.writing && S.writing.texts) || [], by = {};
+  texts.forEach(e => { by[e.topic] = (by[e.topic] || 0) + 1; });
+  const used = WRITE_TOPICS.filter(t => by[t.id]).length;
+  return catHTML('lessons', 'write', '✍️', 'Escribir', `Temas guiados con corrección en español<br>${texts.length} ${texts.length === 1 ? 'texto escrito' : 'textos escritos'} · ${used}/${WRITE_TOPICS.length} temas`, pct(used, WRITE_TOPICS.length), () =>
+    '<p class="muted small">Elige un tema y responde en inglés. La app corrige tu ortografía y tu gramática, y te explica cada error en español.</p>'
+    + `<div class="path">${goRow('data-act="tab" data-tab="write"', '✨', 'Tus textos y la corrección con Claude', texts.length ? `${texts.length} ${texts.length === 1 ? 'texto' : 'textos'} · copia, pega y trae las mejoras` : 'Copia tus textos, pégalos en Claude y trae sus mejoras')}</div>`
+    + subLabel('📝 Temas')
+    + `<div class="path">${WRITE_TOPICS.map(t => goRow(`data-act="write" data-id="${t.id}"`, t.icon, esc(t.title),
+      [t.tense ? esc(tenseName(t.tense)) : t.id === 'free' ? 'Tú eliges el tema' : '', by[t.id] ? `✓ ${by[t.id]} ${by[t.id] === 1 ? 'texto' : 'textos'}` : ''].filter(Boolean).join(' · '))).join('')}</div>`);
 }
 /* Tips: lo que está entre comillas es inglés y se puede tocar */
 const tipHTML = t => String(t || '').split(/("[^"]+")/).map((p, i) => i % 2 ? `“${tapText(p.slice(1, -1))}”` : esc(p)).join('');
 let grammarLevel = 'all';
 function renderGrammar() {
   const levels = [...new Set(LESSONS.map(u => u.level))];
-  return topBar('Gramática', `<button class="icon-btn" data-act="tab" data-tab="lessons" aria-label="Cerrar">${ic('x')}</button>`)
+  return topBar('Gramática', closeBtn())
     + `<p class="muted small">Todos los tips de las lecciones. Toca las palabras en inglés para ver qué significan.</p>
     <div class="chips">${['all', ...levels].map(l => `<button class="lvl-chip ${grammarLevel === l ? 'on' : ''}" data-act="glevel" data-v="${l}">${l === 'all' ? 'Todos' : l}</button>`).join('')}</div>`
     + (grammarLevel === 'all' ? `<section class="unit"><div class="unit-head"><span class="badge warm">Tiempos</span><h2 class="grow">Tiempos verbales</h2></div>
@@ -975,14 +1055,14 @@ function startExerciseAudio() {
 function finishLesson() {
   S.resume = null;
   const les = L.les, acc = pct(L.first, L.total), stars = acc >= 90 ? 3 : acc >= 70 ? 2 : 1;
-  const isAuto = les.id === 'auto', firstTime = !isAuto && !S.done[les.id];
+  const isAuto = les.id === 'auto' || !!les.review, firstTime = !isAuto && !S.done[les.id];
   const xp = 10 + L.first * 2 + (firstTime ? 5 : 0) + (isAuto ? 5 : 0);
   if (isAuto) S.autoDone = (S.autoDone || 0) + 1;
   else S.done[les.id] = Math.max(S.done[les.id] || 0, stars);
   let added = 0;
   if (!les.noCards) les.words.forEach(w => { if (!S.cards[w[0]]) { S.cards[w[0]] = { en: w[0], es: w[1], box: 1, due: 0 }; added++; } });
   addXp(xp);
-  view().innerHTML = summaryHTML({ emoji: stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: les.back || 'lessons',
+  view().innerHTML = summaryHTML({ emoji: stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: tab,
     stats: [[`+${xp}`, 'XP'], [acc + '%', 'A la primera'], ['★'.repeat(stars) + '☆'.repeat(3 - stars), 'Estrellas']],
     note: added ? `Se agregaron ${added} palabras nuevas a tus tarjetas 🃏` : (L.total < L.queue.length ? `Repetiste ${L.queue.length - L.total} ejercicios hasta acertarlos 💪` : '') });
   L = null;
@@ -1003,19 +1083,9 @@ function onLessonMic(r) {
 }
 
 /* ===== HABLAR: diálogos ramificados y pronunciación ===== */
+/* Pronunciación frase por frase (los diálogos y las sesiones están en Lecciones › Hablar) */
 function renderTalk() {
-  return topBar('Hablar') +
-    `<div class="seg"><button class="${talkSeg === 'dialogs' ? 'on' : ''}" data-act="seg" data-seg="talk:dialogs">💬 Diálogos</button><button class="${talkSeg === 'pron' ? 'on' : ''}" data-act="seg" data-seg="talk:pron">🎤 Pronunciación</button></div>` +
-    (talkSeg === 'dialogs' ? dialogListHTML() : pronHTML());
-}
-function dialogListHTML() {
-  return `<p class="muted small">Conversaciones con varios caminos: según lo que respondas, la historia cambia. ¡Descubre todos los finales!</p>` +
-    DIALOGS.map(d => {
-      const ends = dialogEnds(d).length, found = (S.ends[d.id] || []).length;
-      return `<div class="card dlg-card"><div class="row"><span class="dlg-icon">${d.icon}</span><div class="grow"><b>${esc(d.title)} ${S.dialogs[d.id] ? '✅' : ''}</b><p class="muted small">${esc(d.desc)}</p></div><span class="badge soft">${d.level}</span></div>
-      <p class="small muted ends">🧭 Finales descubiertos: ${found}/${ends}</p>
-      <div class="row gap"><button class="btn ghost grow" data-act="dialog" data-id="${d.id}" data-mode="choose">👆 Elegir</button><button class="btn primary grow" data-act="dialog" data-id="${d.id}" data-mode="speak">🎤 Hablar</button></div></div>`;
-    }).join('');
+  return topBar('🎤 Pronunciación', closeBtn()) + pronHTML();
 }
 function longestPath(d) {
   const f = (id, seen) => { const n = d.nodes[id]; if (!n || n.end || seen.has(id)) return 0; seen.add(id); let m = 0; n.options.filter(o => o.go).forEach(o => { m = Math.max(m, f(o.go, seen)); }); seen.delete(id); return 1 + m; };
@@ -1068,9 +1138,10 @@ function finishDialog() {
   const xp = 15 + D.bonus + (firstEnd ? 5 : 0);
   S.dialogs[id] = true;
   S.ends[id] = [...new Set([...(S.ends[id] || []), D.node])];
+  if (!D.wrong && S.dlg[id]) S.dlg[id].wrong = {};   /* sin errores esta vez: el diálogo sale del Repaso */
   save(); addXp(xp);
   const total = dialogEnds(D.d).length, found = S.ends[id].length;
-  view().innerHTML = summaryHTML({ emoji: '💬', title: '¡Conversación completada!', back: 'talk',
+  view().innerHTML = summaryHTML({ emoji: '💬', title: '¡Conversación completada!', back: tab,
     stats: [[`+${xp}`, 'XP'], [D.wrong, 'Errores'], [`${found}/${total}`, 'Finales']],
     note: firstEnd ? (found < total ? '¡Descubriste un final nuevo! Aún quedan caminos por explorar 🧭' : '¡Descubriste todos los finales de este diálogo! 🏅') : (D.mode === 'choose' ? 'Desafío: repítelo en modo 🎤 Hablar para ganar XP extra.' : '') });
   D = null;
@@ -1109,7 +1180,7 @@ function onPronMic(target, r) {
     const xp = r.score >= 90 ? 5 : r.score >= 70 ? 3 : 0;
     if (xp) { addXp(xp); toast(`+${xp} XP 🎤`); sfx(r.score >= 90 ? 'great' : 'ok'); }
   }
-  if (tab === 'talk' && talkSeg === 'pron' && !D && !P) { render(); if (!r.error && r.score >= 70) animate($('.pron-result'), 'anim-ok'); }
+  if (tab === 'talk' && !D && !P) { render(); if (!r.error && r.score >= 70) animate($('.pron-result'), 'anim-ok'); }
 }
 
 /* ===== Sesión de pronunciación: 10 frases seguidas con resumen ===== */
@@ -1182,7 +1253,7 @@ function finishPronSession() {
     <section class="card"><h2>Tus frases</h2>${P.list.map(([en, es], k) => { const b = P.best[k]; return `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><span>${tapText(en)}</span><span class="muted small block">${esc(es)}</span></div>${b && !b.skipped ? tag(b.score) : '<span class="muted small">Saltada</span>'}</div>`; }).join('')}</section>
     ${words.length ? `<section class="card"><h2>🔴 Palabras para practicar</h2><p class="muted small">Toca una palabra para escucharla y ver qué significa.</p><div class="word-chips">${words.map(w => { const g = gloss(w); return `<button class="word-chip bad" data-act="word" data-w="${esc(w)}"><b>${esc(w)}</b>${g ? `<small>${esc(g)}</small>` : ''}</button>`; }).join('')}</div></section>`
       : done.length ? '<section class="card center"><b>🌟 ¡Pronunciaste bien todas las palabras!</b></section>' : ''}
-    <button class="btn primary wide" data-act="tab" data-tab="talk" data-seg2="pron">Continuar</button>`;
+    <button class="btn primary wide" data-act="tab" data-tab="${tab}">Continuar</button>`;
   P = null;
   celebrate();
 }
@@ -1191,11 +1262,128 @@ function finishPronSession() {
 const INTERVALS = [0, 1, 2, 4, 7, 15];
 const BOX_NAMES = ['Nueva', 'Fácil', 'Bien', 'Muy bien', 'Dominada'];
 const dueCards = () => { const now = Date.now(); return Object.values(S.cards).filter(c => c.due <= now); };
-function renderCards() {
+/* Las que fallaste en el último repaso: quedan en la caja 1 con fecha de vuelta */
+const failedCards = () => Object.values(S.cards).filter(c => c.box === 1 && c.due > 0);
+function renderMyCards() {
   if (F) return reviewHTML();
-  return topBar('Tarjetas', `<div class="pill">🃏 ${Object.keys(S.cards).length}</div>`) +
-    `<div class="seg"><button class="${cardSeg === 'review' ? 'on' : ''}" data-act="seg" data-seg="cards:review">🔁 Repasar</button><button class="${cardSeg === 'dict' ? 'on' : ''}" data-act="seg" data-seg="cards:dict">📖 Diccionario</button></div>` +
-    (cardSeg === 'review' ? reviewHomeHTML() : dictHTML());
+  return topBar('🃏 Mis tarjetas', closeBtn()) + reviewHomeHTML() + '<div class="gap-v"></div>' + dictHTML();
+}
+
+/* ===== REPASO: todos tus errores, separados por tipo =====
+   Cada error sale de la lista cuando lo aciertas más veces de las que lo fallaste. */
+const revSub = (n, one, many) => n ? `${n} ${n === 1 ? one : many} para repasar` : '✅ Sin errores por ahora';
+const revEmpty = t => `<p class="rev-empty">✅ ${t}</p>`;
+const revWord = (en, es, right = '') => `<div class="word-row">${sayBtn(en, 'sm')}<div class="grow"><b>${tapText(en)}</b><span class="muted small block">${esc(es)}</span></div>${right}</div>`;
+/* Cada frase de las prácticas de tiempos verbales, para reconocerla entre tus errores */
+let TZ_DRILLS = null;
+function tzDrills() {
+  if (TZ_DRILLS) return TZ_DRILLS;
+  TZ_DRILLS = new Map();
+  TENSE_LESSONS.forEach(l => l.drills.forEach(d => {
+    const tz = l.mix ? d[4] : l.tense, why = l.mix ? d[5] || '' : d[4] || '', en = d[0].replace('___', d[1]).trim();
+    if (!TZ_DRILLS.has(en)) TZ_DRILLS.set(en, { d: [d[0], d[1], d[2], d[3], tz, why], tense: tz, grp: TZ_GROUP_OF[tz] });
+  }));
+  return TZ_DRILLS;
+}
+const byWeak = (a, b) => weakness(b) - weakness(a) || b.last - a.last;
+const weakTense = () => { const m = tzDrills(); return Object.values(S.items).filter(i => i.fail > 0 && weakness(i) > 0 && m.has(i.en)).sort(byWeak).map(i => ({ it: i, ...m.get(i.en) })); };
+/* Palabras y frases de las lecciones (sin las de tiempos verbales ni las que solo fallaste en Tarjetas) */
+function weakPlain() {
+  const tz = tzDrills(), ft = new Map();
+  S.log.forEach(x => { if (!x.ok) (ft.get(x.en) || ft.set(x.en, new Set()).get(x.en)).add(x.type); });
+  const onlyCard = i => { const t = new Set([...Object.keys(i.f || {}), ...(ft.get(i.en) || [])]); return t.size > 0 && [...t].every(x => x === 'card'); };
+  return Object.values(S.items).filter(i => i.fail > 0 && weakness(i) > 0 && i.es && !tz.has(i.en) && !(S.cards[i.en] && onlyCard(i))).sort(byWeak);
+}
+function reviewLesson(id) {
+  if (id === 'rev-words') {
+    const w = weakPlain(); if (!w.length) return null;
+    return { id, title: 'Repaso de palabras y frases', icon: '📚', focus: true, review: true, noCards: true,
+      words: w.filter(i => i.kind === 'w').slice(0, 8).map(i => [i.en, i.es]), sentences: w.filter(i => i.kind === 's').slice(0, 5).map(i => [i.en, i.es]),
+      tip: 'Las palabras y frases de las lecciones que más te han costado. Cada una aparece de varias formas para que la fijes bien.' };
+  }
+  if (id === 'rev-write') {
+    const fixes = writingDrills(10); if (!fixes.length) return null;
+    return { id, title: 'Repaso de tus errores al escribir', icon: '✍️', focus: true, review: true, noCards: true, words: [], sentences: [], fixes,
+      tip: 'Las frases que escribiste con errores, para que elijas la forma correcta y la fijes.' };
+  }
+  if (/^rev-tz/.test(id)) {
+    const g = id.split('-')[2] || '', G = TZ_GROUPS.find(x => x.id === g), list = weakTense().filter(x => !g || x.grp === g).slice(0, 12);
+    if (!list.length) return null;
+    return { id, title: G ? `Repaso del ${G.title.toLowerCase()}` : 'Repaso de tiempos verbales', icon: G ? G.icon : '⏳', review: true, mix: true, noCards: true, words: [], sentences: [], drills: list.map(x => x.d),
+      tip: 'Estas son las frases de tiempos verbales que fallaste. Antes de responder, busca la palabra que te da la pista: "yesterday", "now", "tomorrow", "already"…' };
+  }
+  return null;
+}
+function renderReview() {
+  if (F) return reviewHTML();
+  const auto = autoLesson(), r = S.resume, mine = r && /^(auto|rev-|verbs)/.test(r.id);
+  return topBar('Repaso') + (mine ? resumeCard() : '')
+    + '<p class="muted small">Aquí están tus errores, separados por tipo. Cuando los practicas y los aciertas, van saliendo de la lista.</p>'
+    + (auto ? `<button class="card action-card" data-act="lesson" data-id="auto"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Repasar todo junto</b><small class="muted block">${auto.count} errores mezclados: palabras, frases, escritura y verbos</small></span>${ic('play', 'sm accent')}</button>`
+      : '<div class="card center"><b>✅ No tienes errores pendientes</b><p class="muted small">Cuando te equivoques en algo, aparecerá aquí para que lo repases.</p></div>')
+    + `<div class="cats">${[revTenseCat, revVerbsCat, revWordsCat, revCardsCat, revPronCat, revDlgCat, revWriteCat, revClaudeCat].map(f => f()).join('')}</div>`;
+}
+function revTenseCat() {
+  const all = weakTense(), acc = TENSES.map(t => [t, tenseStat(t.id)]).filter(([, p]) => p != null);
+  const accHTML = acc.length ? subLabel('🎯 Tus aciertos por tiempo') + acc.map(([t, p]) => `<button class="tz-guide" data-act="tense" data-id="${t.id}"><span class="grow">${t.icon} ${esc(t.title)}</span><span class="score-tag ${p >= 85 ? 'good' : p >= 60 ? 'mid' : 'bad'}">${p}%</span>${ic('play', 'sm accent')}</button>`).join('') : '';
+  return catHTML('review', 'tz', '⏳', 'Tiempos verbales', revSub(all.length, 'frase', 'frases'), null, () => !all.length ? revEmpty('No tienes frases de tiempos verbales falladas.') + accHTML
+    : `<div class="path">${TZ_GROUPS.map(g => { const n = all.filter(x => x.grp === g.id).length; return n ? lessonRow({ id: 'rev-tz-' + g.id, icon: g.icon, title: g.title }, true, `<span class="muted small">${n} ${n === 1 ? 'frase' : 'frases'} para repasar</span>`) : ''; }).join('')}
+      ${all.length > 1 && new Set(all.map(x => x.grp)).size > 1 ? lessonRow({ id: 'rev-tz', icon: '🔀', title: 'Los 3 tiempos mezclados' }, true, `<span class="muted small">${Math.min(all.length, 12)} frases de presente, pasado y futuro</span>`) : ''}</div>`
+      + subLabel('📝 Las frases que fallaste') + all.slice(0, 6).map(x => revWord(x.it.en, x.it.es, `<button class="tz-tag" data-act="tense" data-id="${x.tense}">${esc(tenseName(x.tense).split(':')[0])}</button>`)).join('') + accHTML);
+}
+function revVerbsCat() {
+  const w = weakVerbs(99);
+  return catHTML('review', 'verbs', '📒', 'Verbos irregulares', revSub(w.length, 'verbo', 'verbos'), null, () => !w.length
+    ? revEmpty('No tienes verbos irregulares fallados.') + `<div class="path">${goRow('data-act="verbs" data-seg="irr"', '🔀', 'Ver la tabla de irregulares', '')}</div>`
+    : `<div class="path">${lessonRow({ id: 'verbs', icon: '🎯', title: 'Practicar pasado y participio' }, true, '<span class="muted small">Empieza por los que más fallas</span>')}</div>`
+      + subLabel('📝 Los que más fallas') + w.slice(0, 8).map(x => { const v = IRR_MAP.get(x.b); return `<div class="word-row">${sayBtn(`${v.b}, ${v.past.replace(' / ', ', ')}, ${v.part.replace(' / ', ', ')}`, 'sm')}<div class="grow"><b>${esc(v.b)} · ${esc(v.past)} · ${esc(v.part)}</b><span class="muted small block">${esc(v.es)} · te cuesta el ${x.form === 'past' ? 'pasado' : 'participio'}</span></div><button class="add-btn" data-act="verb" data-v="${esc(v.b)}">Ver</button></div>`; }).join(''));
+}
+function revWordsCat() {
+  const w = weakPlain(), nw = Math.min(8, w.filter(i => i.kind === 'w').length) + Math.min(5, w.filter(i => i.kind === 's').length);
+  return catHTML('review', 'words', '📚', 'Palabras y frases', revSub(w.length, 'palabra o frase', 'palabras y frases'), null, () => !w.length ? revEmpty('No tienes palabras ni frases falladas en las lecciones.')
+    : `<div class="path">${lessonRow({ id: 'rev-words', icon: '📚', title: 'Practicar palabras y frases' }, true, `<span class="muted small">Las ${nw} que más te cuestan, de varias formas</span>`)}</div>`
+      + subLabel('📝 Las que más te cuestan') + w.slice(0, 8).map(i => revWord(i.en, i.es, `<span class="score-tag bad">${i.fail} ✗</span>`)).join(''));
+}
+function revCardsCat() {
+  const due = dueCards().length, failed = failedCards(), total = Object.keys(S.cards).length;
+  const sub = !total ? 'Aún no tienes tarjetas' : [due ? `${due} para hoy` : 'Las de hoy, al día ✅', failed.length ? `${failed.length} ${failed.length === 1 ? 'fallada' : 'falladas'}` : ''].filter(Boolean).join(' · ');
+  return catHTML('review', 'cards', '🃏', 'Tarjetas', sub, null, () =>
+    `<div class="path">${due ? goRow('data-act="startrev"', '🔁', `Repasar las de hoy (${Math.min(due, 20)})`, 'Si fallas una, vuelve a salir hasta que la aciertes') : ''}
+      ${failed.length ? goRow('data-act="startrev" data-mode="failed"', '🎯', `Repasar las que fallaste (${Math.min(failed.length, 20)})`, 'Las que no supiste en el último repaso') : ''}
+      ${goRow('data-act="tab" data-tab="mycards"', '🗂️', 'Mis tarjetas', `${total} ${total === 1 ? 'tarjeta' : 'tarjetas'} · agregar palabras y cómo repasar`)}</div>`
+    + (total && !due ? revEmpty('Ya repasaste las tarjetas de hoy.') : '')
+    + (failed.length ? subLabel('📝 Las que fallaste') + failed.slice(0, 6).map(c => revWord(c.en, c.es)).join('') : ''));
+}
+function revPronCat() {
+  const words = weakSounds(12), snd = soundStats().filter(x => x.avg < 80), wp = weakPhrases(10).length;
+  return catHTML('review', 'pron', '🎤', 'Pronunciación', revSub(words.length, 'palabra', 'palabras'), null, () => !words.length && !snd.length ? revEmpty('No tienes palabras difíciles de pronunciar.')
+    : `<div class="path">${wp >= 3 ? goRow('data-act="psession" data-g="weak"', '🎯', 'Sesión de mis errores', `${wp} frases con las palabras que más te cuestan`) : ''}
+      ${snd.map(x => goRow(`data-act="psession" data-g="${x.id}"`, x.grp.icon, esc(x.grp.title), `Tu promedio: ${x.avg}%`)).join('')}</div>`
+      + (words.length ? subLabel('🔴 Palabras para practicar') + `<p class="muted small">Toca una para escucharla.</p><div class="word-chips left">${words.map(([w]) => `<button class="word-chip bad" data-act="say" data-t="${esc(w)}"><b>${esc(w)}</b></button>`).join('')}</div>` : ''));
+}
+function revDlgCat() {
+  const list = DIALOGS.map(d => ({ d, wrong: Object.entries((S.dlg[d.id] || {}).wrong || {}).sort((a, b) => b[1] - a[1]) })).filter(x => x.wrong.length);
+  const n = list.reduce((a, x) => a + x.wrong.length, 0);
+  return catHTML('review', 'dlg', '💬', 'Diálogos', revSub(n, 'respuesta', 'respuestas'), null, () => !list.length ? revEmpty('No tienes errores en los diálogos.')
+    : '<p class="muted small">Respuestas que elegiste mal. Si juegas el diálogo otra vez sin errores, sale de esta lista.</p><div class="path">'
+      + list.map(({ d, wrong }) => `<div class="lesson dlg-row"><span class="lesson-icon">${d.icon}</span><span class="lesson-info grow"><b>${esc(d.title)}</b>${wrong.slice(0, 2).map(([en]) => { const es = optionEs(d, en); return `<span class="muted small block">✗ “${esc(en)}”${es ? ` · ${esc(es)}` : ''}</span>`; }).join('')}
+        <span class="dlg-btns"><button class="add-btn" data-act="dialog" data-id="${d.id}" data-mode="choose">👆 Elegir</button><button class="add-btn strong" data-act="dialog" data-id="${d.id}" data-mode="speak">🎤 Hablar</button></span></span></div>`).join('') + '</div>');
+}
+function revWriteCat() {
+  const fx = writingDrills(99);
+  return catHTML('review', 'write', '✍️', 'Escritura', revSub(fx.length, 'error', 'errores'), null, () => !fx.length
+    ? revEmpty('No tienes errores de escritura pendientes.') + `<div class="path">${goRow('data-act="tab" data-tab="lessons" data-cat="write"', '✍️', 'Escribir un texto', 'Temas guiados con corrección en español')}</div>`
+    : `<div class="path">${lessonRow({ id: 'rev-write', icon: '✍️', title: 'Practicar mis errores al escribir' }, true, `<span class="muted small">${Math.min(fx.length, 10)} ${fx.length === 1 ? 'frase' : 'frases'} para corregir</span>`)}</div>`
+      + subLabel('📝 Tus errores más repetidos') + fx.slice(0, 6).map(e => `<div class="wfix-item"><div><del>${esc(e.wrong)}</del>${e.claude ? ' <span class="muted small">✨ Claude</span>' : ''}</div><div class="row gap-s"><ins>${esc(e.right)}</ins>${sayBtn(e.right, 'sm')}</div>${e.es ? `<div class="small">${esc(e.es)}</div>` : ''}${tenseLink(e)}</div>`).join(''));
+}
+function revClaudeCat() {
+  const packs = S.packs, cl = claudeSentences().length;
+  const sub = packs.length || cl ? [packs.length ? `${packs.length} ${packs.length === 1 ? 'refuerzo' : 'refuerzos'}` : '', cl ? `${cl} ${cl === 1 ? 'frase corregida' : 'frases corregidas'}` : ''].filter(Boolean).join(' · ') : 'Lo que te prepara Claude con tus textos';
+  return catHTML('review', 'claude', '✨', 'Claude', sub, null, () =>
+    (packs.length ? subLabel('📦 Refuerzos preparados por Claude') + `<div class="path">${packs.map(p => `<div class="pack-row">${lessonRow(p, true, `<span class="muted small">${esc(p.note || 'Refuerzo preparado por Claude')}</span>`)}<button class="icon-btn sm" data-act="delpack" data-id="${esc(p.id)}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</div>` : '')
+    + (!packs.length && !cl ? '<p class="muted small">Cuando Claude revise tus textos, aquí aparecerán sus refuerzos y las frases que te corrigió.</p>' : '')
+    + `<div class="path">${cl ? goRow('data-act="psession" data-g="claude"', '🎤', 'Mis frases de Claude', `Pronuncia las ${Math.min(10, cl)} últimas frases que te corrigió`) : ''}
+      ${goRow('data-act="clpaste"', '📥', 'Pegar mejoras de Claude', 'Trae las correcciones de Claude a Fluenta')}</div>`);
 }
 function reviewHomeHTML() {
   const all = Object.values(S.cards), due = dueCards().length;
@@ -1211,8 +1399,8 @@ function reviewHomeHTML() {
       <div class="field">Responder<div class="seg mini"><button class="${S.cardWrite ? '' : 'on'}" data-act="cardwrite" data-v="0">👆 Volteando</button><button class="${S.cardWrite ? 'on' : ''}" data-act="cardwrite" data-v="1">⌨️ Escribiendo</button></div>
         <small class="muted block" style="margin-top:6px">${S.cardWrite ? 'Escribes la respuesta y la app la revisa. Acepta errores de tildes y una letra de diferencia.' : 'Piensas la respuesta, volteas la tarjeta y dices si la sabías.'}</small></div></section>`;
 }
-function startReview(all) {
-  const list = all ? Object.values(S.cards) : dueCards();
+function startReview(mode) {
+  const list = mode === 'all' ? Object.values(S.cards) : mode === 'failed' ? failedCards() : dueCards();
   if (!list.length) return;
   const q = shuffle(list).slice(0, 20).map(c => c.en), dir = S.cardDir || 'en';
   F = { queue: q, i: 0, flip: false, unique: q.length, firstRight: 0, failed: new Set(), typed: '', result: null, close: false,
@@ -1278,7 +1466,7 @@ function rateCard(v) {
   if (F.i >= F.queue.length) {
     const xp = 2 + F.firstRight + F.failed.size, unique = F.unique, right = F.firstRight, fixed = F.failed.size;
     F = null; addXp(xp);
-    view().innerHTML = summaryHTML({ emoji: '🧠', title: '¡Repaso terminado!', back: 'cards',
+    view().innerHTML = summaryHTML({ emoji: '🧠', title: '¡Repaso terminado!', back: tab,
       stats: [[`+${xp}`, 'XP'], [`${right}/${unique}`, 'A la primera'], [fixed, 'Reforzadas']],
       note: fixed ? 'Las tarjetas que fallaste volverán mañana para asegurarte de no olvidarlas.' : '¡Perfecto, ninguna fallada! 🌟' });
     celebrate();
@@ -1788,7 +1976,7 @@ function finishWrite() {
   const ids = W.log.filter(m => m.who === 'me').map(m => m.entry.t).join(',');
   if (xp) addXp(xp);
   W = null;
-  if (!msgs.length) { go('write'); return; }
+  if (!msgs.length) { go(tab); return; }
   view().innerHTML = `<div class="summary"><div class="emoji">✍️</div><h1>¡Bien escrito!</h1>
     <div class="sum-stats"><div class="stat"><b>${msgs.length}</b><small>Respuestas</small></div><div class="stat"><b>${words}</b><small>Palabras</small></div><div class="stat"><b>${perfect}/${msgs.length}</b><small>Sin errores</small></div></div></div>
     ${errs.length ? `<section class="card"><h2>📝 Para repasar</h2>${errs.map(wfixItemHTML).join('')}</section>`
@@ -1796,7 +1984,7 @@ function finishWrite() {
     <section class="card"><h2>✨ ¿Una corrección más completa?</h2><p class="muted small">Copia lo que escribiste, pégalo en Claude y trae sus mejoras de vuelta a Fluenta.</p>
       <button class="btn ghost wide" data-act="clcopy" data-ids="${ids}">📋 Copiar para Claude</button></section>
     <p class="muted small center">Tus errores quedaron en Progreso y en el archivo que exportas.</p>
-    <button class="btn primary wide" data-act="tab" data-tab="write">Continuar</button>`;
+    <button class="btn primary wide" data-act="tab" data-tab="${tab}">Continuar</button>`;
   celebrate();
 }
 function renderWriteTab() {
@@ -1804,7 +1992,7 @@ function renderWriteTab() {
   const words = texts.reduce((a, e) => a + (e.words || 0), 0), pending = texts.filter(e => !e.errors || e.partial).length;
   const unrev = Math.min(12, texts.filter(e => !e.claude).length);
   const tagHTML = errs => errs ? `<span class="score-tag ${errs.length ? 'bad' : 'good'}">${errs.length ? errs.length + ' ✗' : '✓'}</span>` : '<span class="score-tag">Sin revisar</span>';
-  return topBar('Escribir', `<button class="icon-btn" data-act="tab" data-tab="home" aria-label="Cerrar">${ic('x')}</button>`) + `
+  return topBar('Escribir', closeBtn()) + `
     <p class="muted small">Elige un tema y responde en inglés. La app corrige tu ortografía y tu gramática, y te explica cada error en español.</p>
     ${texts.length ? `<div class="stats"><div class="stat">📝<b>${texts.length}</b><small>Textos</small></div><div class="stat">🔤<b>${words}</b><small>Palabras</small></div><div class="stat">🎯<b>${Object.keys(wr.errs || {}).length}</b><small>Errores distintos</small></div></div>` : ''}
     <div class="grid2">${WRITE_TOPICS.map(t => `<button class="sec-card topic" data-act="write" data-id="${t.id}"><span class="topic-icon">${t.icon}</span><b>${esc(t.title)}</b><small>${t.id === 'free' ? 'Tú eliges el tema' : `${t.questions.length} preguntas`}</small>${t.tense ? `<small class="tz-topic">${esc(tenseName(t.tense).split(':')[0])}</small>` : ''}</button>`).join('')}</div>
@@ -1965,7 +2153,7 @@ function applyClaude(d, toCards) {
 const newCL = () => ({ draft: '', data: null, cards: true });
 let CL = newCL();
 function renderClaude() {
-  return topBar('Mejoras de Claude', `<button class="icon-btn" data-act="tab" data-tab="write" aria-label="Cerrar">${ic('x')}</button>`) + `
+  return topBar('Mejoras de Claude', closeBtn()) + `
     <p class="muted small">En Claude, toca <b>Copiar</b> en el bloque «Para Fluenta» y pégalo aquí. La app guarda tus errores y arma una lección, tarjetas y práctica de pronunciación con tus frases.</p>
     <button class="btn primary wide" data-act="clread">📋 Pegar lo que copiaste</button>
     <textarea id="clIn" class="cl-in" rows="5" placeholder="…o mantén presionado aquí y elige «Pegar»" autocorrect="off" autocapitalize="off" spellcheck="false" autocomplete="off">${esc(CL.draft)}</textarea>
@@ -2025,14 +2213,23 @@ function claudeHits(text) {
    El contenido está en verbos.js. Las prácticas no entran en la cadena de desbloqueo:
    siempre están abiertas y no bloquean las lecciones que ya tienes. */
 const TENSE_MAP = Object.fromEntries(TENSES.map(t => [t.id, t]));
-const TIME_GROUPS = [['Presente', 'Lo de siempre y lo de ahora'], ['Pasado', 'Lo que ya pasó'], ['Futuro', 'Lo que va a pasar'], ['Puente', 'Entre el pasado y el presente']];
-const tzLesson = (l, extra) => ({ ...l, ...extra, words: l.words || [], sentences: [], back: 'tenses', noCards: true });
+const tzLesson = (l, extra) => ({ ...l, ...extra, words: l.words || [], sentences: [], noCards: true });
 const TENSE_LESSONS = [...TENSES.flatMap(t => t.lessons.map(l => tzLesson(l, { tense: t.id, tip: l.tip || t.tip }))), ...TENSE_MIX.map(l => tzLesson(l, { mix: true }))];
 const tenseName = id => TENSE_MAP[id] ? TENSE_MAP[id].title : '';
 const tenseLessonsOf = t => TENSE_LESSONS.filter(l => l.tense === t.id && !l.mix);
-const tenseDone = t => t.lessons.filter(l => S.done[l.id]).length;
 function tenseStat(id) { const x = S.tense[id]; return x && x.ok + x.fail ? pct(x.ok, x.ok + x.fail) : null; }
 let tenseId = null, tenseForm = 'aff';
+/* En Lecciones los tiempos van en 3 secciones. El presente perfecto va en Pasado: sirve para contar experiencias y lo que ya pasó */
+const TZ_GROUPS = [
+  { id: 'pres', icon: '☀️', title: 'Presente', sub: 'Presente simple y presente continuo', tenses: ['pres', 'prog'], mix: ['tz-mix-pp'] },
+  { id: 'past', icon: '⏪', title: 'Pasado', sub: 'Pasado simple, pasado continuo y presente perfecto', tenses: ['past', 'pastprog', 'perf'], mix: ['tz-mix-past', 'tz-mix-perf'] },
+  { id: 'fut', icon: '🔮', title: 'Futuro', sub: 'Will y going to', tenses: ['fut'], mix: ['tz-mix-fut'] }
+];
+const TZ_GROUP_OF = Object.fromEntries(TZ_GROUPS.flatMap(g => g.tenses.map(t => [t, g.id])));
+const tzGroupLessons = g => [...g.tenses.flatMap(id => TENSE_LESSONS.filter(l => l.tense === id && !l.mix)), ...g.mix.map(id => TENSE_LESSONS.find(l => l.id === id)).filter(Boolean)];
+function tzGroupAcc(ids) { let ok = 0, n = 0; ids.forEach(id => { const x = S.tense[id]; if (x) { ok += x.ok; n += x.ok + x.fail; } }); return n ? pct(ok, n) : null; }
+/* La sección donde vas: la primera con prácticas sin hacer */
+function tzNextGroup() { const g = TZ_GROUPS.find(x => tzGroupLessons(x).some(l => !S.done[l.id])); return 'tz-' + (g ? g.id : 'pres'); }
 /* 20 ejercicios: reconocer las palabras → completar con la forma correcta → escuchar, ordenar y decirlo */
 function genTenseExercises(les) {
   const fill = (d, opt) => { const [a, b] = d[0].split('___'); return (a + opt + b).trim(); };
@@ -2053,24 +2250,15 @@ function genTenseExercises(les) {
   const listen = d => { const en = fill(d, d[1]); return { type: 'listen', track: 'listen', tense: tz(d), prompt: 'Escucha y elige lo que oíste', say: en, answer: en, options: shuffle([en, ...d[2].map(o => fill(d, o))]), en, es: d[3] }; };
   const last = short[short.length - 1] || pool[pool.length - 1], orders = short.filter(d => d !== last).slice(0, 2);
   const rest = pool.filter(d => d !== last && !orders.includes(d)), more = orders.map(order);
-  while (recog.length + drills.length + more.length < 19 && rest.length) more.push(listen(rest.shift()));
+  if (les.review) more.splice(0, more.length, ...shuffle([...pool.map(listen), ...short.map(order)]).slice(0, Math.max(0, 19 - drills.length)));   /* repaso: cada frase fallada de varias formas */
+  else while (recog.length + drills.length + more.length < 19 && rest.length) more.push(listen(rest.shift()));
   const speak = last ? [{ type: 'speak', track: 'speak', prompt: 'Lee en voz alta', big: fill(last, last[1]), sub: last[3], say: fill(last, last[1]), answer: fill(last, last[1]), en: fill(last, last[1]), es: last[3] }] : [];
   return noRepeats([...shuffle(recog), ...shuffle(drills), ...shuffle(more), ...speak]);
 }
+/* La ficha de un tiempo (las secciones de los tiempos están en Lecciones) */
 function renderTenses() {
-  if (tenseId && TENSE_MAP[tenseId]) return renderTense(TENSE_MAP[tenseId]);
-  const done = TENSE_LESSONS.filter(l => S.done[l.id]).length, all = Object.values(S.tense), ok = all.reduce((a, x) => a + x.ok, 0), n = all.reduce((a, x) => a + x.ok + x.fail, 0);
-  return topBar('Tiempos verbales', `<button class="icon-btn" data-act="tab" data-tab="lessons" aria-label="Cerrar">${ic('x')}</button>`) + `
-    <p class="muted small">Presente, pasado y futuro: cómo se forma cada tiempo, cuándo se usa y mucha práctica. Toca un tiempo para ver su ficha.</p>
-    <div class="stats"><div class="stat">⏳<b>${TENSES.length}</b><small>Tiempos</small></div><div class="stat">🎯<b>${done}/${TENSE_LESSONS.length}</b><small>Prácticas</small></div><div class="stat">✅<b>${n ? pct(ok, n) + '%' : '—'}</b><small>Aciertos</small></div></div>
-    <section class="card"><h2>🧭 ¿Qué tiempo uso?</h2><p class="muted small">Pregúntate esto sobre lo que quieres decir:</p>
-      ${TENSE_GUIDE.map(([q, id, ex]) => `<button class="tz-guide" data-act="tense" data-id="${id}"><span class="grow"><b>${esc(q)}</b><small class="block">→ ${esc(tenseName(id))} · <i>${esc(ex)}</i></small></span>${ic('play', 'sm accent')}</button>`).join('')}</section>
-    <section class="card"><h2>🔁 Un verbo en todos los tiempos</h2>
-      ${TENSE_COMPARE.map(([id, en, es]) => `<div class="word-row">${sayBtn(en.replace(' · ', '. '), 'sm')}<div class="grow"><b>${tapText(en)}</b><span class="muted small block">${esc(es)}</span></div><button class="tz-tag" data-act="tense" data-id="${id}">${esc(tenseName(id).split(':')[0])}</button></div>`).join('')}</section>
-    ${TIME_GROUPS.map(([g, sub]) => `<section class="unit"><div class="unit-head"><span class="badge ${g === 'Puente' ? 'soft' : ''}">${g}</span><h2 class="grow">${sub}</h2></div><div class="path">
-      ${TENSES.filter(t => t.time === g).map(t => { const p = tenseStat(t.id), d = tenseDone(t); return `<button class="lesson ${d === t.lessons.length ? 'done' : ''}" data-act="tense" data-id="${t.id}"><span class="lesson-icon">${t.icon}</span><span class="lesson-info grow"><b>${esc(t.title)}</b><span class="muted small block">${esc(t.short)}</span><span class="muted small block">${d}/${t.lessons.length} ${t.lessons.length === 1 ? 'práctica' : 'prácticas'}${p != null ? ` · ${p}% de aciertos` : ''}</span></span>${ic('play', 'sm accent')}</button>`; }).join('')}</div></section>`).join('')}
-    <section class="unit"><div class="unit-head"><span class="badge warm">Mezcla</span><h2 class="grow">Aprende a elegir el tiempo</h2></div><div class="path">${TENSE_LESSONS.filter(l => l.mix).map(l => lessonRow(l, true)).join('')}</div></section>
-    <button class="card action-card" data-act="verbs"><span class="icon-bubble">📒</span><span class="grow"><b>Verbos regulares e irregulares</b><small class="muted block">Todas sus formas: base, pasado, participio y -ing</small></span>${ic('play', 'sm accent')}</button>`;
+  if (!TENSE_MAP[tenseId]) tenseId = 'pres';
+  return renderTense(TENSE_MAP[tenseId]);
 }
 /* Español de la tabla en negativo y en pregunta: «yo trabajo» → «yo no trabajo» / «¿trabajo?» */
 function esForm(es, mode) {
@@ -2081,7 +2269,7 @@ const tzExampleHTML = (en, es) => `<div class="row gap-s">${sayBtn(en, 'sm')}<di
 const mistakeHTML = ([w, r, es]) => `<div class="wfix-item"><div><del>${esc(w)}</del></div><div class="row gap-s"><ins>${esc(r)}</ins>${sayBtn(r, 'sm')}</div><div class="small">${esc(es)}</div></div>`;
 function renderTense(t) {
   const modes = [['aff', '✅ Afirmativa'], ['neg', '🚫 Negativa'], ['q', '❓ Pregunta']], col = { aff: 1, neg: 2, q: 3 }[tenseForm], p = tenseStat(t.id);
-  return topBar(`${t.icon} ${esc(t.title)}`, `<button class="icon-btn" data-act="tensehub" aria-label="Volver">${ic('x')}</button>`) + `
+  return topBar(`${t.icon} ${esc(t.title)}`, `${closeBtn()}`) + `
     <p class="tz-short">${esc(t.short)}</p>
     <div class="card tz-formula"><span class="label">Cómo se forma</span><b>${esc(t.formula)}</b></div>
     <section class="card"><div class="seg mini">${modes.map(([v, l]) => `<button class="${tenseForm === v ? 'on' : ''}" data-act="tform" data-v="${v}">${l}</button>`).join('')}</div>
@@ -2157,11 +2345,11 @@ function verbForms(v) {
   const reg = !!v.reg;
   return { ...v, reg, third: thirdPerson(v.b), past: reg ? edOf(v.b) : v.past, part: reg ? edOf(v.b) : v.part, ing: ingOf(v.b) };
 }
-let verbSeg = 'irr', verbPat = '', verbSearch = '', verbsBack = 'lessons';
+let verbSeg = 'irr', verbPat = '', verbSearch = '';
 function renderVerbs() {
   if (verbSeg === 'reg' && !DICT) loadDict().then(() => { const l = $('#verbList'); if (tab === 'verbs' && l) l.innerHTML = verbListHTML(); }).catch(() => {});
   const sounds = Object.values(ED_SOUND);
-  return topBar('Verbos', `<button class="icon-btn" data-act="tab" data-tab="${verbsBack}" aria-label="Cerrar">${ic('x')}</button>`) + `
+  return topBar('Verbos', closeBtn()) + `
     <p class="muted small">Cada verbo con todas sus formas: base, he / she, pasado, participio y -ing. Toca uno para escucharlo y verlo en cada tiempo.</p>
     <button class="card action-card" data-act="lesson" data-id="verbs"><span class="icon-bubble warm">${ic('target')}</span><span class="grow"><b>Practicar pasado y participio</b><small class="muted block">20 preguntas con los irregulares más usados${weakVerbs(1).length ? ' · primero los que más te cuestan' : ''}</small></span>${ic('play', 'sm accent')}</button>
     <div class="seg"><button class="${verbSeg === 'irr' ? 'on' : ''}" data-act="vseg" data-v="irr">🔀 Irregulares</button><button class="${verbSeg === 'reg' ? 'on' : ''}" data-act="vseg" data-v="reg">✅ Regulares</button></div>
@@ -2221,7 +2409,7 @@ function verbLesson(id) {
   if (!pool.length) return null;
   const weak = new Set(weakVerbs(10).map(x => x.b));
   const pick10 = [...pool.filter(v => weak.has(v.b)), ...shuffle(pool.filter(v => !weak.has(v.b) && !S.verbs[v.b])), ...shuffle(pool.filter(v => !weak.has(v.b) && S.verbs[v.b]))].slice(0, 10);
-  return { id, title: pat ? `Irregulares: ${VERB_PATTERNS[pat][0].toLowerCase()}` : 'Pasado y participio', icon: '🔀', back: 'verbs', noCards: true, words: [], sentences: [],
+  return { id, title: pat ? `Irregulares: ${VERB_PATTERNS[pat][0].toLowerCase()}` : 'Pasado y participio', icon: '🔀', noCards: true, words: [], sentences: [],
     tip: 'Elige la forma correcta de cada verbo. Las que fallas se repiten al final, y las que más te cuestan vuelven en «Mis errores».',
     verbQs: noRepeats(shuffle(pick10.flatMap(v => [verbQ(v, 'past'), verbQ(v, 'part')]))) };
 }
@@ -2408,14 +2596,23 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.5 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.6 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
 /* ===== Acciones (botones) ===== */
 const ACTIONS = {
-  tab: el => { if (el.dataset.seg2) talkSeg = el.dataset.seg2; go(el.dataset.tab); },
-  seg: el => { const [k, v] = el.dataset.seg.split(':'); if (k === 'talk') talkSeg = v; else if (k === 'cards') cardSeg = v; else statSeg = v; render(); },
+  tab: el => { if (el.dataset.cat) openCat[el.dataset.tab] = el.dataset.cat; go(el.dataset.tab); },
+  back: () => go(backOf(tab)),
+  /* Abrir o cerrar una sección: solo una abierta a la vez, para que la lista no se alargue */
+  cat: el => {
+    const p = el.dataset.page, id = el.dataset.id;
+    openCat[p] = openCat[p] === id ? null : id; render();
+    const c = openCat[p] && $(`#cat-${id}`);
+    if (c) window.scrollTo({ top: Math.max(0, c.getBoundingClientRect().top + window.scrollY - 12), behavior: 'smooth' });
+  },
+  clevel: el => { courseLevel = el.dataset.v; render(); },
+  seg: el => { const [k, v] = el.dataset.seg.split(':'); if (k === 'stats') statSeg = v; render(); },
   say: el => speak(el.dataset.t, !!el.dataset.slow),
   lesson: el => startLesson(el.dataset.id),
   begin: () => { if (!L) return; L.intro = false; L.i = L.resumeAt || 0; renderLesson(); startExerciseAudio(); },
@@ -2426,11 +2623,11 @@ const ACTIONS = {
   check: () => { if (!L) return; if (L.answered) nextExercise(); else evaluateLesson(); },
   speakskip: () => { if (!L) return; L.answered = true; L.ok = true; L.skipped = true; if (!L.queue[L.i].retry) L.first++; saveResume(); renderLesson(); },
   quit: () => {
-    const back = L ? (L.les.back || 'lessons') : (D || P) ? 'talk' : W ? 'write' : 'cards';
+    /* Siempre se vuelve a la pantalla desde donde empezaste la actividad */
     /* En las lecciones no se pierde nada: el avance queda guardado */
-    if (L && !L.intro) { saveResume(); if (S.resume) toast('💾 Guardé tu avance. Continúa cuando quieras.'); go(back); return; }
+    if (L && !L.intro) { saveResume(); if (S.resume) toast('💾 Guardé tu avance. Continúa cuando quieras.'); go(tab); return; }
     if (((D && !D.finished) || (P && P.best.length)) && !confirm('¿Salir? Perderás el progreso de esta actividad.')) return;
-    go(back);
+    go(tab);
   },
   mic: el => {
     const ctx = el.dataset.ctx;
@@ -2515,7 +2712,7 @@ const ACTIONS = {
     st.recOnly = true; rerenderVoice(ctx);
     st.recTimer = setTimeout(() => { if (st.recOnly) ACTIONS.recordonly({ dataset: { ctx } }); }, 8000);   /* máximo 8 segundos */
   },
-  startrev: el => startReview(!!el.dataset.all),
+  startrev: el => startReview(el.dataset.all ? 'all' : el.dataset.mode || 'due'),
   flip: () => { F.flip = !F.flip; sfx('flip'); render(); if (F.flip) speakAfter(S.cards[F.queue[F.i]].en); },
   rate: el => rateCard(el.dataset.v === '1'),
   write: el => startWrite(el.dataset.id),
@@ -2532,12 +2729,11 @@ const ACTIONS = {
   },
   wview: el => viewWriting(el.dataset.t),
   wpending: () => reviewPending(),
-  tenses: () => { tenseId = null; go('tenses'); },
+  tenses: () => { openCat.lessons = tzNextGroup(); go('lessons'); },
   tense: el => { tenseId = el.dataset.id; tenseForm = 'aff'; go('tenses'); },
-  tensehub: () => { tenseId = null; go('tenses'); },
   tform: el => { tenseForm = el.dataset.v; render(); },
   tensesheet: el => tenseSheet(el.dataset.id),
-  verbs: () => { if (tab !== 'verbs') verbsBack = tab === 'tenses' ? 'tenses' : 'lessons'; go('verbs'); },
+  verbs: el => { if (el && el.dataset.seg) { verbSeg = el.dataset.seg; verbPat = ''; } go('verbs'); },
   verb: el => openVerb(el.dataset.v),
   vseg: el => { verbSeg = el.dataset.v; verbPat = ''; render(); },
   vpat: el => { verbPat = el.dataset.v; render(); },
@@ -2585,7 +2781,6 @@ const ACTIONS = {
   carddir: el => { S.cardDir = el.dataset.v; save(); render(); },
   cardwrite: el => { S.cardWrite = el.dataset.v === '1'; save(); render(); },
   cardidk: () => checkCardAnswer(true),
-  jumplevel: el => { const s = $(`#view .unit[data-level="${el.dataset.v}"]`); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   favdone: () => { S.favTip = true; save(); render(); },
   accent: el => { clearTimeout(accentTimer); const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
