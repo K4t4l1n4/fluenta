@@ -216,13 +216,38 @@ function loadVoice() {
     || vs.find(v => v.lang === 'en-US') || vs.find(v => v.lang.startsWith('en')) || null;
 }
 if ('speechSynthesis' in window) { loadVoice(); speechSynthesis.onvoiceschanged = loadVoice; }
+/* 🐢 Lento: en el iPhone, bajar solo la velocidad casi no se nota (y Safari no acepta menos de 0.5),
+   así que la frase se dice por partes cortas con una pausa entre ellas. Las partes no terminan en
+   "a", "the", "to"…: dichas solas se pronuncian distinto. */
+const SLOW_GLUE = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'from', 'by', 'about', 'my', 'your', 'his', 'her', 'our', 'their', 'its', 'and', 'or', 'but', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'i', 'you', 'he', 'she', 'we', 'they', 'it', 'do', 'does', 'did', "don't", "doesn't", "didn't", 'will', "won't", 'can', "can't", 'have', 'has', 'had', 'not', 'very', 'this', 'that', 'some', 'any', 'going']);
+function slowChunks(text) {
+  const tk = text.split(/\s+/).filter(Boolean), out = [];
+  let cur = [];
+  tk.forEach((t, i) => {
+    cur.push(t);
+    const w = t.toLowerCase().replace(/[^a-z']/g, ''), stop = /[,.;:!?]$/.test(t), last = i === tk.length - 1;
+    if (last || stop || cur.length >= 5 || (cur.length >= 3 && !SLOW_GLUE.has(w))) { out.push(cur.join(' ')); cur = []; }
+  });
+  return out;
+}
+let speakId = 0;
+function stopSpeech() { speakId++; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
 function speak(text, slow) {
   if (!('speechSynthesis' in window) || !text) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.replace(/^\(.*?\)\s*/, ''));
-  u.lang = 'en-US'; if (voice) u.voice = voice;
-  u.rate = slow ? 0.55 : S.rate;
-  speechSynthesis.speak(u);
+  const busy = speechSynthesis.speaking || speechSynthesis.pending;
+  stopSpeech();
+  const id = speakId, say = text.replace(/^\(.*?\)\s*/, ''), parts = slow ? slowChunks(say) : [say];
+  const utter = i => {
+    if (id !== speakId || i >= parts.length) return;
+    const u = new SpeechSynthesisUtterance(parts[i]);
+    u.lang = 'en-US'; if (voice) u.voice = voice;
+    u.rate = slow ? 0.5 : S.rate;
+    let done = false; const next = () => { if (!done) { done = true; setTimeout(() => utter(i + 1), 320); } };
+    if (i < parts.length - 1) { u.onend = next; u.onerror = next; setTimeout(next, 1000 + tokens(parts[i]).length * 900); }   /* por si el iPhone no avisa que terminó */
+    speechSynthesis.speak(u);
+  };
+  /* Si algo estaba sonando, el iPhone a veces ignora lo que se pide justo después de cancelar: se espera un momento */
+  if (busy) setTimeout(() => utter(0), 150); else utter(0);
 }
 
 /* ===== Sonidos: los "toca" un mini sintetizador (sin archivos, funcionan sin internet) ===== */
@@ -472,7 +497,7 @@ function playVoice(buf) {
 /* Primero la voz modelo y, al terminar, tu voz */
 function speakThen(text, cb) {
   if (!('speechSynthesis' in window)) return cb();
-  speechSynthesis.cancel();
+  stopSpeech();
   const u = new SpeechSynthesisUtterance(text.replace(/^\(.*?\)\s*/, ''));
   u.lang = 'en-US'; if (voice) u.voice = voice; u.rate = S.rate;
   let done = false; const next = () => { if (!done) { done = true; setTimeout(cb, 300); } };
@@ -2596,7 +2621,7 @@ function renderProfile() {
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
-  <p class="muted small center">Fluenta 3.6 · tu app de inglés, gratis para siempre 💜</p>
+  <p class="muted small center">Fluenta 3.6.1 · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
 }
 
@@ -2636,7 +2661,7 @@ const ACTIONS = {
     else if (ctx === 'dialog') targets = D.opts.filter(o => o.go).map(o => o.en);
     else if (ctx === 'psession') { if (!P || P.tries >= PS_TRIES) return; targets = P.list[P.i][0]; }
     else targets = pronCurrent || PRON[0].phrases[0][0];
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    stopSpeech();
     try { if (PLAYING) PLAYING.stop(); } catch (e) {}
     el.classList.add('listening');
     const res = $('#micres'); if (res) res.innerHTML = '<p class="center listening-txt">🎙️ Escuchando… habla ahora</p>';
