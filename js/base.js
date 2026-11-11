@@ -31,7 +31,7 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const APP_VERSION = '3.8';
+const APP_VERSION = '3.8.1';
 /* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
 const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
   .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');

@@ -451,7 +451,7 @@
     ACTIONS.translate(el({ mode: 'text', t: dictSearchQ })); eq(tab, 'translate'); eq(TR.text, 'how are you today'); dictSearchQ = '';
   });
   test('Calendario de racha, diplomas y recordatorio', () => {
-    rich(); go('stats'); ok(view().includes('Tu calendario') && view().includes('class="on today"'), 'el calendario no marca hoy'); look('progreso con calendario');
+    rich(); go('stats'); ok(view().includes('🗓️ Calendario') && view().includes('class="on today"'), 'el calendario no marca hoy'); look('progreso con calendario');
     ACTIONS.calmove(el({ v: '-1' })); ok(calOff === -1 && !view().includes('class="on today"')); ACTIONS.calmove(el({ v: '1' })); ACTIONS.calmove(el({ v: '1' })); eq(calOff, 0, 'no se puede ir al futuro');
     /* terminar la última lección de A1 da el diploma */
     S = fresh(); go('lessons'); const a1 = levelLessons('A1'); a1.slice(0, -1).forEach(l => { S.done[l.id] = 3; });

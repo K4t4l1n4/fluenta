@@ -200,7 +200,7 @@ function calendarHTML() {
     if (on) active++;
     cells += `<span class="${on ? 'on' : ''} ${key === now ? 'today' : ''}">${k}</span>`;
   }
-  return `<section class="card"><div class="row between"><h2>🗓️ Tu calendario</h2><div class="row gap-s"><button class="icon-btn sm" data-act="calmove" data-v="-1" aria-label="Mes anterior">‹</button><b class="cal-title">${MONTHS_FULL[m]} ${y}</b><button class="icon-btn sm" data-act="calmove" data-v="1" aria-label="Mes siguiente" ${calOff >= 0 ? 'disabled' : ''}>›</button></div></div>
+  return `<section class="card"><div class="row between cal-head"><h2>🗓️ Calendario</h2><div class="row gap-s"><button class="icon-btn sm" data-act="calmove" data-v="-1" aria-label="Mes anterior">‹</button><b class="cal-title">${MONTHS_FULL[m]} ${y}</b><button class="icon-btn sm" data-act="calmove" data-v="1" aria-label="Mes siguiente" ${calOff >= 0 ? 'disabled' : ''}>›</button></div></div>
     <div class="cal">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(x => `<b>${x}</b>`).join('')}${cells}</div>
     <p class="muted small center">${active} ${active === 1 ? 'día practicado' : 'días practicados'} en ${MONTHS_FULL[m].toLowerCase()} · racha actual: ${currentStreak()} 🔥</p></section>`;
 }

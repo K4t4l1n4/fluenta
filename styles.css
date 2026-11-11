@@ -613,7 +613,8 @@ a.btn{text-decoration:none}
 .cal span{aspect-ratio:1;display:grid;place-items:center;border-radius:50%;font-size:13px;background:var(--surface2);color:var(--muted)}
 .cal span.on{background:var(--grad);color:#fff;font-weight:600}
 .cal span.today{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
-.cal-title{font-size:14px;min-width:118px;text-align:center}
+.cal-title{font-size:14px;min-width:112px;text-align:center;white-space:nowrap}
+.cal-head h2{margin:0;white-space:nowrap}
 .dips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
 .dip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 4px;border-radius:16px;background:var(--surface2);opacity:.6}
 .dip.on{opacity:1;background:var(--gold-soft)}
