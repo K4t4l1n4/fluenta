@@ -30,7 +30,7 @@ class El {
   get offsetWidth() { return 0; } get offsetLeft() { return 0; }
 }
 const ELS = {};
-['#view', '#tabs', '#toast', '#sheet', '#sheetBody', '.sheet', '#importFile', 'meta[name="theme-color"]'].forEach(s => { ELS[s] = new El(); });
+['#view', '#tabs', '#toast', '#sheet', '#sheetBody', '.sheet', '#importFile', '#dqres', 'meta[name="theme-color"]'].forEach(s => { ELS[s] = new El(); });
 const listeners = {};
 const document = {
   documentElement: new El('html'), body: new El('body'), head: new El('head'), visibilityState: 'visible', activeElement: null,

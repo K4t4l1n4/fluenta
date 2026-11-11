@@ -7,7 +7,7 @@ const view = () => $('#view');
 /* Cada pantalla interna pertenece a un botón de la barra, para que siempre se vea dónde estás */
 const NAV_OF = { home: 'home', profile: 'home', lessons: 'lessons', review: 'review', stats: 'stats' };
 /* La ✕ de una pantalla interna vuelve a donde estabas antes de entrar */
-const PAGE_BACK = { tenses: 'lessons', verbs: 'lessons', grammar: 'lessons', talk: 'lessons', write: 'lessons', claude: 'write', mycards: 'review' };
+const PAGE_BACK = { tenses: 'lessons', verbs: 'lessons', grammar: 'lessons', talk: 'lessons', write: 'lessons', claude: 'write', mycards: 'review', translate: 'home', reader: 'home', vocab: 'lessons' };
 const pageBack = {};
 const backOf = t => pageBack[t] || PAGE_BACK[t] || 'home';
 /* Una pantalla interna se marca en el botón desde donde entraste (Escribir desde Lecciones, Mejoras de Claude desde Repaso…) */
@@ -18,7 +18,8 @@ const openCat = { lessons: null, review: null };
 function go(t) {
   if (t === 'cards') t = 'review';
   if (PAGE_BACK[t] && t !== tab && pageBack[tab] !== t) pageBack[t] = tab;
-  tab = t; L = null; D = null; F = null; P = null; W = null;
+  if (A && A.tick) clearInterval(A.tick);   /* el reloj de «Contra reloj» */
+  tab = t; L = null; D = null; F = null; P = null; W = null; A = null;
   if (SHEET.open) closeSheet();
   document.body.classList.remove('focus');
   try { rec && rec.abort(); } catch (e) {}
@@ -29,7 +30,9 @@ function go(t) {
 function render() {
   rollover();
   markNav(navOf(tab));
-  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, review: renderReview, mycards: renderMyCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude, tenses: renderTenses, verbs: renderVerbs })[tab]();
+  if (A) { renderA(); return; }   /* hay una lectura, un juego u otra actividad en pantalla */
+  view().innerHTML = ({ home: renderHome, lessons: renderLessons, talk: renderTalk, review: renderReview, mycards: renderMyCards, stats: renderStats, profile: renderProfile, write: renderWriteTab, grammar: renderGrammar, claude: renderClaude, tenses: renderTenses, verbs: renderVerbs,
+    translate: renderTranslate, reader: renderReader, vocab: renderVocab })[tab]();
   if (tab === 'home') fillWod();
 }
 /* Barra de abajo: una burbuja de color se desliza hasta el botón marcado y su ícono da un saltito */
@@ -191,7 +194,7 @@ function resumeCard() {
 }
 function renderHome() {
   const lv = levelInfo(), st = currentStreak(), goalPct = Math.min(100, pct(S.dailyXp, S.goal));
-  const nx = allLessons().find(l => !S.done[l.id]);
+  const nx = nextLesson();
   /* Si la lección a medias es la misma del botón grande, el botón dice "Continuar" y no se repite abajo */
   const rs = S.resume && savedResume(S.resume.id), heroResume = rs && nx && rs.id === nx.id;
   const table = leagueTable(), pos = table.findIndex(r => r.you);
@@ -210,6 +213,9 @@ function renderHome() {
       : `<p class="hero-sub">🎓 ¡Completaste todas las lecciones!</p>`}
   </section>
   ${heroResume ? '' : resumeCard()}
+  <section class="card tools"><h2>🌐 Traductor</h2>
+    <div class="grid4">${[['data-act="translate" data-mode="text"', '✏️', 'Texto'], ['data-act="translate" data-mode="voice"', '🗣️', 'Voz'], ['data-act="translate" data-mode="photo"', '📷', 'Foto'], ['data-act="tab" data-tab="reader"', '📰', 'Leer']]
+      .map(([a, i, l]) => `<button class="tool-btn" ${a}><span>${i}</span><b>${l}</b></button>`).join('')}</div></section>
   <section class="card daily"><div id="wod"></div>${verbOfDayHTML()}</section>
   <section class="card sec-box"><h2>Tus secciones</h2>
     <div class="grid3">${sectionStats().map((s, i) => `

@@ -1,7 +1,8 @@
 'use strict';
 /* Fluenta · Lecciones: secciones que se despliegan, gramática, palabra del día y los ejercicios. */
 /* ===== LECCIONES ===== */
-function lessonUnlocked(id) { const all = allLessons(), i = all.findIndex(l => l.id === id); return i <= 0 || !!S.done[all[i - 1].id]; }
+/* Abierta si hiciste la anterior, o si la prueba de nivel te dejó en ese nivel o más arriba */
+function lessonUnlocked(id) { const all = allLessons(), i = all.findIndex(l => l.id === id); return i <= 0 || !!S.done[all[i - 1].id] || LEVELS.indexOf(LESSON_LEVEL.get(id)) <= placedIdx(); }
 const starsOf = l => { const st = S.done[l.id] || 0; return `<span class="stars">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</span>`; };
 const hereTag = '<span class="here-tag">📍 Sigues aquí</span>';
 function lessonRow(l, un, extra = '', here = false) {
@@ -26,16 +27,16 @@ let courseLevel = null;
 function renderLessons() {
   const ls = allLessons();
   return topBar('Lecciones', `<div class="pill">📚 ${ls.filter(l => S.done[l.id]).length}/${ls.length}</div>`) + resumeCard()
-    + `<div class="cats">${courseCat()}${TZ_GROUPS.map(tzGroupCat).join('')}${tzMixCat()}${verbsCat()}${talkCat()}${writeCat()}
+    + `<div class="cats">${courseCat()}${TZ_GROUPS.map(tzGroupCat).join('')}${tzMixCat()}${verbsCat()}${talkCat()}${writeCat()}${readCat()}${listenCat()}${vocabCat()}
       ${catLink('data-act="tab" data-tab="grammar"', '📖', 'Gramática', 'Todos los tips de las lecciones y de los tiempos verbales')}</div>`;
 }
 /* Curso: se elige el nivel arriba y se ven sus unidades; se abre solo en el nivel donde vas */
 function courseCat() {
-  const ls = allLessons(), done = ls.filter(l => S.done[l.id]).length, nx = ls.find(l => !S.done[l.id]);
+  const ls = allLessons(), done = ls.filter(l => S.done[l.id]).length, nx = nextLesson(), placed = (S.extra || {}).placed;
   const nu = nx && LESSONS.find(u => u.lessons.includes(nx));
   return catHTML('lessons', 'course', '📚', 'Curso por niveles', nx ? `${done}/${ls.length} lecciones · vas en ${nu.level}: ${esc(nu.unit)}` : '🎓 ¡Completaste todas las lecciones!', pct(done, ls.length), () => {
     const levels = [...new Set(LESSONS.map(u => u.level))], lv = levels.includes(courseLevel) ? courseLevel : nu ? nu.level : levels[levels.length - 1];
-    return `<div class="chips">${levels.map(l => { const full = LESSONS.filter(u => u.level === l).every(u => u.lessons.every(x => S.done[x.id])); return `<button class="lvl-chip ${l === lv ? 'on' : ''}" data-act="clevel" data-v="${l}">${l}${full ? ' ✓' : ''}</button>`; }).join('')}</div>`
+    return `<div class="path">${goRow('data-act="placement"', '🧭', 'Prueba de nivel', placed ? `Empiezas desde ${placed}. Puedes hacerla otra vez.` : 'Si ya sabes inglés, salta directo a tu nivel')}</div><div class="chips">${levels.map(l => { const full = LESSONS.filter(u => u.level === l).every(u => u.lessons.every(x => S.done[x.id])); return `<button class="lvl-chip ${l === lv ? 'on' : ''}" data-act="clevel" data-v="${l}">${l}${full ? ' ✓' : ''}</button>`; }).join('')}</div>`
       + LESSONS.filter(u => u.level === lv).map(u => `<div class="unit-head cat-unit"><span class="badge">${u.level}</span><h3 class="grow">${esc(u.unit)}</h3><span class="muted small">${u.lessons.filter(l => S.done[l.id]).length}/${u.lessons.length}</span></div>
         <div class="path">${u.lessons.map(l => lessonRow(l, lessonUnlocked(l.id), '', l === nx)).join('')}</div>`).join('');
   });
@@ -78,7 +79,9 @@ function talkCat() {
         <span class="dlg-btns"><button class="add-btn" data-act="dialog" data-id="${d.id}" data-mode="choose">👆 Elegir</button><button class="add-btn strong" data-act="dialog" data-id="${d.id}" data-mode="speak">🎤 Hablar</button></span></span></div>`; }).join('') + '</div>'
     + subLabel('🎤 Pronunciación')
     + `<div class="path">${goRow('data-act="tab" data-tab="talk"', '🎙️', 'Practicar frase por frase', 'Escucha, repite y mira el % de cada palabra')}
-      ${PRON.map(c => goRow(`data-act="psession" data-g="${c.id}"`, c.icon, esc(c.title), `Sesión de 10 frases${snd[c.id] != null ? ` · tu promedio ${snd[c.id]}%` : ''}`)).join('')}</div>`);
+      ${PRON.map(c => goRow(`data-act="psession" data-g="${c.id}"`, c.icon, esc(c.title), `Sesión de 10 frases${snd[c.id] != null ? ` · tu promedio ${snd[c.id]}%` : ''}`)).join('')}</div>`
+    + subLabel('👂 Pares de sonidos') + '<p class="muted small">Dos palabras que suenan casi igual: escuchas una y eliges cuál fue. Entrena el oído y la pronunciación.</p>'
+    + `<div class="path">${pairsRowsHTML()}</div>`);
 }
 function writeCat() {
   const texts = (S.writing && S.writing.texts) || [], by = {};
@@ -337,9 +340,10 @@ function finishLesson() {
   let added = 0;
   if (!les.noCards) les.words.forEach(w => { if (!S.cards[w[0]]) { S.cards[w[0]] = { en: w[0], es: w[1], box: 1, due: 0 }; added++; } });
   addXp(xp);
-  view().innerHTML = summaryHTML({ emoji: stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: tab,
+  const dip = isAuto ? '' : newDiploma(les.id);   /* ¿con esta lección terminaste un nivel entero? */
+  view().innerHTML = summaryHTML({ emoji: dip ? '🎓' : stars === 3 ? '🏆' : '🎉', title: isAuto ? '¡Refuerzo completado!' : '¡Lección completada!', back: tab,
     stats: [[`+${xp}`, 'XP'], [acc + '%', 'A la primera'], ['★'.repeat(stars) + '☆'.repeat(3 - stars), 'Estrellas']],
-    note: added ? `Se agregaron ${added} palabras nuevas a tus tarjetas 🃏` : (L.total < L.queue.length ? `Repetiste ${L.queue.length - L.total} ejercicios hasta acertarlos 💪` : '') });
+    note: dip ? `🎓 ¡Completaste todo el nivel ${dip}! Tu diploma te espera en Progreso.` : added ? `Se agregaron ${added} palabras nuevas a tus tarjetas 🃏` : (L.total < L.queue.length ? `Repetiste ${L.queue.length - L.total} ejercicios hasta acertarlos 💪` : '') });
   L = null;
   celebrate();
 }

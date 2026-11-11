@@ -1,7 +1,7 @@
 /* Service worker: permite que la app funcione sin internet */
-const CACHE = 'fluenta-v20';
-const ASSETS = ['./', './index.html', './styles.css', './data.js', './verbos.js', './dict.json', './manifest.json',
-  './js/base.js', './js/voz.js', './js/inicio.js', './js/lecciones.js', './js/hablar.js', './js/repaso.js', './js/diccionario.js', './js/escribir.js', './js/tiempos.js', './js/progreso.js', './js/acciones.js',
+const CACHE = 'fluenta-v21';
+const ASSETS = ['./', './index.html', './styles.css', './data.js', './verbos.js', './extra.js', './vocab.js', './dict.json', './manifest.json',
+  './js/base.js', './js/voz.js', './js/inicio.js', './js/lecciones.js', './js/hablar.js', './js/repaso.js', './js/diccionario.js', './js/escribir.js', './js/tiempos.js', './js/progreso.js', './js/traductor.js', './js/aprender.js', './js/juegos.js', './js/acciones.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

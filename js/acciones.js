@@ -181,12 +181,18 @@ const ACTIONS = {
   carddir: el => { S.cardDir = el.dataset.v; save(); render(); },
   cardwrite: el => { S.cardWrite = el.dataset.v === '1'; save(); render(); },
   cardidk: () => checkCardAnswer(true),
+  calmove: el => { calOff = Math.min(0, calOff + (+el.dataset.v)); render(); },
+  diploma: el => openDiploma(el.dataset.v),
+  dipsave: el => saveDiploma(el.dataset.v),
+  remind: () => addReminder(),
   clearerr: () => { S.errors = []; save(); render(); },
   reload: () => { if (L && !L.intro) saveResume(); location.reload(); },
   favdone: () => { S.favTip = true; save(); render(); },
   accent: el => { clearTimeout(accentTimer); const v = el.dataset.v; S.accent = v === DEFAULT_ACCENT ? '' : v; save(); applyTheme(); render(); toast('🎨 Color cambiado'); },
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
+/* Los botones del traductor, de las lecturas y actividades nuevas, y de los juegos */
+Object.assign(ACTIONS, TR_ACTIONS, AP_ACTIONS, GAME_ACTIONS);
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -220,6 +226,8 @@ document.addEventListener('input', e => {
   else if (t.id === 'wtext' && W) { W.draft = t.value; const c = $('#wcount'); if (c) c.textContent = `${wordCount(W.draft)} palabras`; }
   else if (t.id === 'vq') { verbSearch = t.value; const l = $('#verbList'); if (l) l.innerHTML = verbListHTML(); }
   else if (t.id === 'clIn') { CL.draft = t.value; CL.data = parseClaude(t.value); const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); }
+  else if (t.id === 'trIn') { TR.text = t.value; if (!t.value.trim()) TR.manual = false; }
+  else if (t.id === 'rdIn') rdDraft = t.value;
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
   else if (t.id === 'setAccent') previewAccent(t.value);   /* se ve al instante mientras eliges */
@@ -229,6 +237,8 @@ document.addEventListener('change', e => {
   if (e.target.id === 'setGoal') { S.goal = +e.target.value; save(); }
   else if (e.target.id === 'setSoundVol') sfx('ok');   /* para escuchar cómo queda el volumen */
   else if (e.target.id === 'setAccent') previewAccent(e.target.value);   /* sin render(): el iPhone manda "change" en cada movimiento */
+  else if (e.target.id === 'setRemind') { S.remind = e.target.value || '20:00'; save(); }
+  else if (e.target.id === 'trFile') { const f = e.target.files && e.target.files[0]; if (f) readPhoto(f); }
   else if (e.target.id === 'importFile') {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     const r = new FileReader(); r.onload = () => importText(String(r.result)); r.readAsText(file);

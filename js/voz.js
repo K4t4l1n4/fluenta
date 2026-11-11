@@ -23,18 +23,20 @@ function slowChunks(text) {
   return out;
 }
 function stopSpeech() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
-function speak(text, slow) {
-  if (!('speechSynthesis' in window) || !text) return;
+/* Dice una o varias frases seguidas (una historia). Todas las partes se piden en el mismo momento en que
+   se toca el botón (quedan en fila): si la voz se pide después, con una espera, el iPhone no la deja sonar. */
+function speakAll(list, slow) {
+  if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
-  const say = text.replace(/^\(.*?\)\s*/, '');
-  /* Todas las partes se piden en el mismo momento en que se toca el botón (quedan en fila):
-     si la voz se pide después, con una espera, el iPhone no la deja sonar. */
-  (slow ? slowChunks(say) : [say]).forEach(p => {
+  list.filter(Boolean).forEach(text => (slow ? slowChunks(text) : [text]).forEach(p => {
     const u = new SpeechSynthesisUtterance(p);
     u.lang = 'en-US'; if (voice) u.voice = voice;
     u.rate = slow ? 0.5 : S.rate;
     speechSynthesis.speak(u);
-  });
+  }));
+}
+function speak(text, slow) {
+  if (text) speakAll([text.replace(/^\(.*?\)\s*/, '')], slow);
 }
 
 /* ===== Sonidos: los "toca" un mini sintetizador (sin archivos, funcionan sin internet) ===== */

@@ -31,7 +31,7 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const APP_VERSION = '3.7';
+const APP_VERSION = '3.8';
 /* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
 const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
   .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
@@ -56,7 +56,8 @@ const ICONS = {
   review: '<path d="M3 12a9 9 0 0 1 15.4-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16"/><path d="M3 21v-5h5"/>',
   chev: '<path d="m6 9 6 6 6-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  swap: '<path d="M7 7h13l-3-3"/><path d="M17 17H4l3 3"/>'
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -68,7 +69,8 @@ const DEFAULT = {
   rate: 0.9, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
   resume: null, cardDir: 'en', cardWrite: false, favTip: false, recordVoice: true, autoReplay: true,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
-  writing: { texts: [], errs: {} }, tense: {}, verbs: {}, errors: []
+  writing: { texts: [], errs: {} }, tense: {}, verbs: {}, errors: [],
+  extra: {}, tr: [], texts: [], remind: '20:00'   /* 3.8: lecturas, juegos, prueba de nivel · traducciones · textos del lector · hora del recordatorio */
 };
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT));
 let S = load();
@@ -105,7 +107,7 @@ function addXp(n) {
 }
 
 /* ===== Historial de aciertos y errores ===== */
-const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)', dictation: 'Escuchar y escribir', fixwrite: 'Corregir mis errores de escritura', tense: 'Tiempos verbales', verbs: 'Verbos irregulares' };
+const TYPE_LABELS = { meaning: 'Significado', translate: 'Traducir al inglés', listen: 'Escuchar', order: 'Ordenar frases', fill: 'Completar', speak: 'Hablar', card: 'Tarjetas', dialog: 'Diálogos', write: 'Escribir (textos sin errores)', dictation: 'Escuchar y escribir', fixwrite: 'Corregir mis errores de escritura', tense: 'Tiempos verbales', verbs: 'Verbos irregulares', read: 'Lecturas', listenq: 'Historias para escuchar', pairs: 'Pares de sonidos', game: 'Juegos' };
 function trackType(type, ok) {
   const t = S.types[type] || (S.types[type] = { ok: 0, fail: 0 }); ok ? t.ok++ : t.fail++;
   const d = today(); ok ? d.ok++ : d.fail++;
@@ -176,6 +178,13 @@ function leagueHTML(table, limit) {
 
 /* ===== Lecciones: búsqueda ===== */
 const allLessons = () => LESSONS.flatMap(u => u.lessons);
+const LEVELS = [...new Set(LESSONS.map(u => u.level))];
+const LESSON_LEVEL = new Map(LESSONS.flatMap(u => u.lessons.map(l => [l.id, u.level])));
+/* La lección que sigue: la primera sin hacer desde el nivel donde te dejó la prueba de nivel */
+function nextLesson() {
+  const open = allLessons().filter(l => !S.done[l.id]), p = placedIdx();
+  return open.find(l => LEVELS.indexOf(LESSON_LEVEL.get(l.id)) >= p) || open[0] || null;
+}
 const allWords = () => allLessons().flatMap(l => l.words);
 const allSentences = () => allLessons().flatMap(l => l.sentences);
 const allPhrases = () => PRON.flatMap(c => c.phrases.map(p => p[0]));
@@ -209,6 +218,7 @@ function findLesson(id) {
   if (id === 'auto') return autoLesson();
   if (/^verbs/.test(id)) return verbLesson(id);
   if (/^rev-/.test(id)) return reviewLesson(id);
+  if (/^x-/.test(id)) return extraLesson(id);   /* vocabulario práctico */
   return allLessons().find(l => l.id === id) || TENSE_LESSONS.find(l => l.id === id) || S.packs.find(p => p.id === id);
 }
 
@@ -231,7 +241,10 @@ const ACH = [
   { id: 'words5', icon: '📝', name: 'Coleccionista', desc: 'Agrega 5 palabras propias', test: () => S.added >= 5 },
   { id: 'fix', icon: '🛠️', name: 'Sin miedo al error', desc: 'Completa una lección de refuerzo', test: () => S.autoDone >= 1 },
   { id: 'backup', icon: '💾', name: 'Precavida', desc: 'Exporta tu progreso', test: () => S.lastExport > 0 },
-  { id: 'podium', icon: '🏆', name: 'Podio', desc: 'Llega al top 3 de la liga', test: () => S.weekXp > 0 && leagueTable().findIndex(r => r.you) < 3 }
+  { id: 'podium', icon: '🏆', name: 'Podio', desc: 'Llega al top 3 de la liga', test: () => S.weekXp > 0 && leagueTable().findIndex(r => r.you) < 3 },
+  { id: 'reader', icon: '📖', name: 'Lectora', desc: 'Completa una lectura', test: () => Object.keys((S.extra && S.extra.read) || {}).length >= 1 },
+  { id: 'ear', icon: '🎧', name: 'Buen oído', desc: 'Completa una historia de Escuchar', test: () => Object.keys((S.extra && S.extra.listen) || {}).length >= 1 },
+  { id: 'gamer', icon: '🎮', name: 'Jugadora', desc: 'Termina un juego de repaso', test: () => Object.keys((S.extra && S.extra.games) || {}).length >= 1 }
 ];
 function checkAch() {
   for (const a of ACH) {

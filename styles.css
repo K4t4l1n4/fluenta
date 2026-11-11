@@ -556,3 +556,71 @@ a.btn{text-decoration:none}
 .cats.calm .cat-head{padding:9px 14px 9px 10px;gap:12px}
 .cats.calm .cat-icon{width:38px;height:38px;font-size:19px;border-radius:13px;background:var(--surface)}
 .cats.calm .cat-head b{font-size:15px}
+
+/* ===== 3.8 · Traductor y lector ===== */
+.tools h2{margin-bottom:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tool-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:16px;background:var(--surface2);transition:transform .15s}
+.tool-btn:active{transform:scale(.94)}
+.tool-btn span{font-size:24px;line-height:1.2}
+.tool-btn b{font-size:13px}
+.tr-dir{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;margin:-4px 0 14px;padding:10px;border-radius:16px;background:var(--surface);box-shadow:var(--shadow);border:1px solid var(--line);color:var(--accent-ink)}
+.tr-dir .ic{color:var(--accent)}
+.tr-dir b{min-width:84px;text-align:center}
+.tr-out{font-size:21px;font-weight:600;line-height:1.45;margin:6px 0 4px;white-space:pre-wrap;word-break:break-word;-webkit-user-select:text;user-select:text}
+.tr-src{line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.tr-say{margin:12px 0}
+.tr-res .btn{padding:12px 10px;font-size:15px}
+.tr-heard{font-size:17px;font-weight:500;margin:10px 0 0}
+#trIn,#rdIn{min-height:0}
+.rd-s{padding:12px 0;border-bottom:1px solid var(--line)}
+.rd-s:last-child{border:0}
+.rd-en{font-size:18px;line-height:1.7;margin:0}
+.rd-es{color:var(--accent-ink);font-size:15px;line-height:1.5;margin:6px 0 0}
+.rd-btns{display:flex;align-items:center;gap:8px;margin-top:8px}
+.rd-para{padding:14px}
+.rd-para .rd-en{margin-top:10px}
+/* ===== 3.8 · Pares de sonidos y juegos ===== */
+.pair-opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.pair-opt{text-align:center;padding:18px 10px}
+.pair-opt b{font-size:22px}
+.pair-cmp .btn{padding:12px 10px}
+.pair-cmp p{margin:12px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tile-btn{min-height:72px;padding:8px 6px;border-radius:16px;background:var(--surface);border:2px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:500;line-height:1.25;word-break:break-word;transition:transform .1s}
+.tile-btn.en{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.tile-btn.sel{border-color:var(--accent);transform:scale(1.04)}
+.tile-btn.ok{opacity:.35;border-color:var(--ok);box-shadow:none}
+.tile-btn.bad{border-color:var(--bad);background:var(--bad-soft);animation:nope .45s ease}
+.hang-word{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:8px 0 14px}
+.hang-word span{width:30px;height:40px;border-bottom:3px solid var(--accent);display:grid;place-items:center;font-size:24px;font-weight:700}
+.hang-word.lost span{color:var(--bad);border-color:var(--bad)}
+.hang-word.won span{color:var(--ok);border-color:var(--ok)}
+.hang-lives{font-size:20px;letter-spacing:3px;margin:0 0 14px}
+.kbd{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.key{height:46px;border-radius:12px;background:var(--surface);border:1.5px solid var(--line);font-size:18px;font-weight:600;box-shadow:0 3px 0 var(--line)}
+.key.ok{background:var(--ok-soft);color:var(--ok);box-shadow:none;border-color:transparent}
+.key.bad{opacity:.3;box-shadow:none}
+.chip.letter{min-width:44px;text-align:center;font-size:20px;font-weight:600;padding:9px 0}
+.scr-line{justify-content:center}
+.scr-word{font-size:24px}
+.rush-word{justify-content:center;font-size:30px;border-radius:18px;padding:10px;transition:background .2s}
+.rush-word.ok{background:var(--ok-soft)} .rush-word.bad{background:var(--bad-soft)}
+@media (prefers-reduced-motion:reduce){.tile-btn.bad{animation:none}}
+/* ===== 3.8 · Calendario de racha y diplomas ===== */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0 10px;text-align:center}
+.cal b{font-size:11px;color:var(--muted);font-weight:600}
+.cal span{aspect-ratio:1;display:grid;place-items:center;border-radius:50%;font-size:13px;background:var(--surface2);color:var(--muted)}
+.cal span.on{background:var(--grad);color:#fff;font-weight:600}
+.cal span.today{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.cal-title{font-size:14px;min-width:118px;text-align:center}
+.dips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.dip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 4px;border-radius:16px;background:var(--surface2);opacity:.6}
+.dip.on{opacity:1;background:var(--gold-soft)}
+.dip span{font-size:24px} .dip b{font-size:16px} .dip small{font-size:12px;color:var(--muted)}
+.diploma{text-align:center;border:2px solid var(--accent);border-radius:24px;padding:22px 16px;margin:6px 0 4px;background:var(--surface2)}
+.dip-brand{font-weight:700;letter-spacing:.18em;color:var(--accent);font-size:13px;text-transform:uppercase}
+.dip-emoji{font-size:54px;margin:6px 0}
+.dip-name{display:block;font-size:26px;margin:6px 0}
+.dip-level{display:block;font-size:54px;font-weight:700;color:var(--accent);line-height:1.1;margin:6px 0}
+.dip-date{color:var(--muted);font-size:14px}

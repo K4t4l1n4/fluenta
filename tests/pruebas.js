@@ -10,7 +10,7 @@
   /* ===== Un progreso "con de todo", para revisar las pantallas con datos ===== */
   function rich() {
     S = fresh();
-    tab = 'home'; L = null; D = null; F = null; P = null; W = null; CL = newCL();
+    tab = 'home'; L = null; D = null; F = null; P = null; W = null; A = null; CL = newCL(); TR = newTR(); RDR = null;
     openCat.lessons = null; openCat.review = null;
     const ls = allLessons();
     ls.slice(0, 5).forEach(l => { S.done[l.id] = 3; });
@@ -105,20 +105,20 @@
   test('La versión de Perfil es la de la app', () => { go('profile'); ok(view().includes(`Fluenta ${APP_VERSION}`), 'Perfil muestra otra versión'); });
 
   /* ============ 2. Todas las pantallas, sin progreso y con progreso ============ */
-  const TABS = ['home', 'lessons', 'review', 'stats', 'profile', 'mycards', 'talk', 'write', 'grammar', 'claude', 'verbs', 'tenses'];
+  const TABS = ['home', 'lessons', 'review', 'stats', 'profile', 'mycards', 'talk', 'write', 'grammar', 'claude', 'verbs', 'tenses', 'translate', 'reader', 'vocab'];
   test('Todas las pantallas abren sin progreso', () => { S = fresh(); TABS.forEach(t => { go(t); ok(view().length > 100, `${t} está vacía`); look(t + ' (vacío)'); }); });
   test('Todas las pantallas abren con progreso', () => { rich(); TABS.forEach(t => { go(t); look(t); }); });
   test('Cada sección de Lecciones se despliega', () => {
     rich(); go('lessons');
     const ids = actsIn(view()).length && [...view().matchAll(/data-act="cat" data-page="lessons" data-id="([^"]+)"/g)].map(m => m[1]);
-    ok(ids.length >= 7, 'faltan secciones en Lecciones');
+    ok(ids.length >= 10, 'faltan secciones en Lecciones');
     ids.forEach(id => { openCat.lessons = id; render(); ok(view().includes('cat-body'), `la sección ${id} no se abre`); look('Lecciones › ' + id); });
     S.done = {}; courseLevel = 'B2'; openCat.lessons = 'course'; render(); look('Lecciones › curso B2');
   });
   test('Cada sección de Repaso se despliega', () => {
     rich(); go('review');
     const ids = [...view().matchAll(/data-act="cat" data-page="review" data-id="([^"]+)"/g)].map(m => m[1]);
-    eq(ids.length, 8, 'Repaso debe tener 8 secciones');
+    eq(ids.length, 9, 'Repaso debe tener 9 secciones (8 de errores y Juegos)');
     ids.forEach(id => { openCat.review = id; render(); ok(view().includes('cat-body'), `la sección ${id} no se abre`); look('Repaso › ' + id); });
   });
   test('Repaso: primero lo que tiene errores, después lo que está al día', () => {
@@ -273,6 +273,193 @@
   test('Agregar una palabra desde el diccionario actualiza Mis tarjetas', async () => {
     S = fresh(); await loadDict(); go('mycards'); const before = view();
     ACTIONS.addcardw(el({ en: 'house', es: 'casa' })); ok(S.cards.house, 'no se agregó'); ok(view() !== before, 'Mis tarjetas no se actualizó');
+  });
+
+
+  /* ============ 6b. Lo nuevo de la 3.8 ============ */
+  const fourOpts = (q, where) => { ok(q[0] && q[1].length === 4 && new Set(q[1]).size === 4, `${where}: debe tener 4 opciones distintas`); };
+  test('Contenido nuevo bien armado (lecturas, historias, vocabulario, pares, prueba)', () => {
+    const ids = new Set();
+    const uniq = id => { ok(!ids.has(id), `id repetido: ${id}`); ids.add(id); };
+    READINGS.forEach(x => { uniq(x.id); ok(LEVELS.includes(x.level) && x.title && x.es && x.icon, `${x.id}: faltan datos`); ok(x.paras.length >= 2 && x.paras.every(p => p[0] && p[1]), `${x.id}: párrafos sin traducción`); ok(x.qs.length >= 3, `${x.id}: pocas preguntas`); x.qs.forEach((q, i) => fourOpts(q, `${x.id} pregunta ${i + 1}`)); ok(x.words.every(w => w[0] && w[1]), `${x.id}: palabras`); });
+    LISTENINGS.forEach(x => { uniq(x.id); ok(x.lines.length >= 5 && x.lines.every(p => p[0] && p[1]), `${x.id}: frases sin traducción`); ok(x.qs.length >= 3, `${x.id}: pocas preguntas`); x.qs.forEach((q, i) => fourOpts(q, `${x.id} pregunta ${i + 1}`)); });
+    vocabSets().forEach(st => { uniq(st.id); ok(/^x-/.test(st.id), `${st.id}: el id debe empezar con x-`); eq(st.items.length, 10, `${st.id}: deben ser 10`); eq(st.sentences.length, 6, `${st.id}: deben ser 6 frases`);
+      eq(new Set(st.items.map(i => i[0])).size, 10, `${st.id}: palabras repetidas`); eq(new Set(st.items.map(i => i[1])).size, 10, `${st.id}: traducciones repetidas`); ok(st.tip, `${st.id}: sin tip`); });
+    VOCAB.ff.sets.forEach(st => st.items.forEach(i => ok(i[2] && i[3], `${st.id}: a "${i[0]}" le falta el falso amigo`)));
+    MIN_PAIRS.forEach(g => { uniq(g.id); ok(g.pairs.length >= 5 && g.tip, `${g.id}: pocos pares`); g.pairs.forEach(p => ok(p.length === 4 && p[0] !== p[2] && p.every(Boolean), `${g.id}: par mal armado (${p[0]})`)); });
+    eq(PLACEMENT.map(b => b.level), LEVELS.slice(0, 5), 'la prueba debe tener un bloque por nivel, en orden');
+    PLACEMENT.forEach(b => { eq(b.qs.length, 6, `prueba ${b.level}`); b.qs.forEach((q, i) => { fourOpts(q, `prueba ${b.level} ${i + 1}`); ok(q[0].includes('___'), `prueba ${b.level} ${i + 1}: falta el espacio ___`); }); });
+  });
+  const answerQuiz = wrongFirst => {
+    let n = 0;
+    while (A && A.Q && A.step === 'quiz' && n++ < 40) {
+      const x = A.Q.list[A.Q.i], bad = wrongFirst && n === 1;
+      ACTIONS.aopt(el({ i: String(bad ? x.opts.findIndex(o => o !== x.ans) : x.opts.indexOf(x.ans)) }));
+      look('pregunta'); ACTIONS.acheck(); ok(A.Q.answered, 'no revisó la respuesta'); look('pregunta revisada'); ACTIONS.acheck();
+    }
+  };
+  test('Hacer todas las lecturas', () => {
+    S = fresh(); go('lessons');
+    READINGS.forEach((r, k) => {
+      ACTIONS.reading(el({ id: r.id })); ok(A && A.kind === 'read', `${r.id} no abre`); look('lectura ' + r.id);
+      ACTIONS.aes(el({ i: '0' })); ok(view().includes(esc(r.paras[0][1])), `${r.id}: no muestra la traducción`);
+      ACTIONS.aquiz(); ACTIONS.atext(); look('texto en hoja'); closeSheet();
+      answerQuiz(k === 0);
+      ok(!A && /Lectura completada/.test(view()), `${r.id} no terminó`);
+      eq(X().read[r.id], k === 0 ? 2 : 3, `${r.id}: estrellas`);
+    });
+    ok(S.ach.reader, 'no dio el logro Lectora'); eq(tab, 'lessons');
+  });
+  test('Hacer todas las historias de Escuchar (la voz se pide en el mismo toque)', () => {
+    S = fresh(); go('lessons');
+    LISTENINGS.forEach(r => {
+      ACTIONS.listening(el({ id: r.id })); ok(A && A.kind === 'listen', `${r.id} no abre`); look('historia ' + r.id);
+      ok(!view().includes(esc(r.lines[1][0])), `${r.id}: el texto se ve antes de escuchar`);
+      spoken.length = 0; const before = __t.pending();
+      ACTIONS.aplay(el({})); eq(spoken.map(u => u.text), r.lines.map(l => l[0]), `${r.id}: no pidió todas las frases`); eq(__t.pending(), before, 'la voz quedó esperando');
+      spoken.length = 0; ACTIONS.aplay(el({ slow: '1' })); ok(spoken.length > r.lines.length && spoken.every(u => u.rate === 0.5), `${r.id}: la versión lenta no va por partes`);
+      ACTIONS.aquiz(); answerQuiz(false);
+      ok(!A && /Historia completada/.test(view()) && view().includes('La historia'), `${r.id} no terminó con su texto`); look('fin de historia');
+      eq(X().listen[r.id], 3);
+    });
+  });
+  test('Vocabulario práctico: se ve y cada grupo se practica como lección', () => {
+    S = fresh();
+    Object.keys(VOCAB).forEach(k => { ACTIONS.vocab(el({ seg: k })); eq(tab, 'vocab'); look('vocabulario ' + k); });
+    vocabSets().forEach(st => { const l = findLesson(st.id); ok(l, `no existe la lección ${st.id}`); const ex = genExercises(l); ok(ex.length >= 15, `${st.id}: ${ex.length} ejercicios`); ex.forEach((e, i) => checkExercise(e, `${st.id} #${i + 1}`)); });
+    playLesson('x-ff-1'); playLesson('x-pv-2'); playLesson('x-ex-3');
+    ok(S.done['x-ff-1'] && S.cards.actually, 'no guardó el grupo o sus tarjetas'); eq(tab, 'vocab');
+    ACTIONS.back(); eq(tab, 'lessons', 'la ✕ de Vocabulario debe volver a Lecciones');
+  });
+  test('Pares de sonidos: todos los grupos', () => {
+    S = fresh(); go('lessons');
+    MIN_PAIRS.forEach((g, k) => {
+      spoken.length = 0; ACTIONS.pairs(el({ id: g.id })); ok(A && A.kind === 'pairs', `${g.id} no abre`); eq(spoken.length, 1, 'no dijo la primera palabra');
+      let n = 0;
+      while (A && n++ < 20) {
+        const say = A.list[A.i].say; look('par');
+        ACTIONS.apair(el({ k: String(k === 0 && n === 1 ? (say === 0 ? 2 : 0) : say) })); look('par respondido');
+        const before = spoken.length; ACTIONS.anext();
+        if (A) eq(spoken.length, before + 1, 'la palabra siguiente no se pidió en el toque');
+      }
+      ok(!A && /Oído entrenado/.test(view()), `${g.id} no terminó`);
+      ok(X().pairs[g.id] === (k === 0 ? pct(Math.min(8, g.pairs.length) - 1, Math.min(8, g.pairs.length)) : 100), `${g.id}: resultado ${X().pairs[g.id]}`);
+    });
+  });
+  const placement = rightUntil => {   /* responde bien los primeros bloques y mal el resto */
+    ACTIONS.placement(); look('prueba intro'); ACTIONS.aplace();
+    let n = 0;
+    while (A && A.step === 'quiz' && n++ < 40) { const x = A.Q.list[A.Q.i]; look('prueba');
+      ACTIONS.aopt(el({ i: String(A.bi < rightUntil ? x.opts.indexOf(x.ans) : x.opts.findIndex(o => o !== x.ans)) })); ACTIONS.acheck(); }
+    look('prueba resultado'); return A.level;
+  };
+  test('Prueba de nivel: te ubica y abre las lecciones de tu nivel', () => {
+    S = fresh(); go('lessons');
+    eq(placement(0), 'A1', 'si fallas el primer bloque quedas en A1'); ok(!view().includes('aplaceok'), 'en A1 no hay nada que abrir'); go('lessons');
+    eq(placement(5), 'C2', 'con todo bueno quedas en C2'); go('lessons');
+    eq(placement(2), 'B1', 'con A1 y A2 buenos quedas en B1');
+    const b1 = LESSONS.find(u => u.level === 'B1').lessons[0], b2 = LESSONS.find(u => u.level === 'B2').lessons[0];
+    ok(!lessonUnlocked(b1.id), 'B1 no debería estar abierta todavía');
+    ACTIONS.aplaceok(); eq(X().placed, 'B1'); eq(tab, 'lessons'); ok(!A, 'la prueba debe cerrarse');
+    ok(lessonUnlocked(b1.id) && !lessonUnlocked(b2.id), 'deben abrirse las lecciones hasta B1, no las de B2');
+    eq(nextLesson().id, b1.id, 'la lección que sigue debe ser la primera de B1');
+    go('home'); ok(view().includes(esc(b1.title)), 'Inicio no ofrece la primera lección de B1');
+    openCat.lessons = 'course'; go('lessons'); ok(view().includes('Empiezas desde B1'), 'el curso no dice desde dónde empiezas'); look('curso con prueba');
+    ACTIONS.placement(); ACTIONS.aplaceoff(); ok(!X().placed && !lessonUnlocked(b1.id), 'no volvió a A1'); go('lessons');
+  });
+  test('Juegos: pareo, ahorcado, letras desordenadas y contra reloj', () => {
+    rich(); go('review'); openCat.review = 'games'; render(); look('Repaso › juegos');
+    /* pareo: un error y después todas las parejas */
+    ACTIONS.game(el({ g: 'match' })); ok(A && A.kind === 'match', 'pareo no abre'); look('pareo');
+    const t = A.tiles, wrong = t.findIndex((x, i) => i > 0 && x.en !== t[0].en && x.k !== t[0].k);
+    ACTIONS.gtile(el({ i: '0' })); ACTIONS.gtile(el({ i: String(wrong) })); eq(A.miss, 1, 'el error no se contó'); look('pareo con error');
+    for (let k = 0; A && k < t.length / 2; k++) { const i = t.findIndex(x => x.k === k && x.en), j = t.findIndex(x => x.k === k && !x.en); ACTIONS.gtile(el({ i: String(i) })); ACTIONS.gtile(el({ i: String(j) })); }
+    ok(!A && /Juego terminado/.test(view()), 'pareo no terminó'); look('fin de pareo'); eq(X().games.match.plays, 1);
+    /* ahorcado: una palabra perdida y el resto ganadas */
+    ACTIONS.game(el({ g: 'hang' })); ok(A && A.kind === 'hang' && A.words.length === 5, 'ahorcado no abre'); look('ahorcado');
+    const w0 = A.words[0][0].toLowerCase(); [...'abcdefghijklmnopqrstuvwxyz'].filter(c => !w0.includes(c)).slice(0, 6).forEach(c => ACTIONS.gkey(el({ k: c })));
+    eq(A.state, 'lost', 'con 6 letras malas se pierde'); look('ahorcado perdido'); ACTIONS.gnext();
+    let n = 0;
+    while (A && n++ < 10) { spoken.length = 0; [...new Set(A.words[A.wi][0].toLowerCase())].forEach(c => ACTIONS.gkey(el({ k: c }))); eq(A.state, 'won', 'no ganó adivinando todas las letras'); eq(spoken.length, 1, 'no dijo la palabra'); look('ahorcado ganado'); ACTIONS.gnext(); }
+    ok(!A, 'ahorcado no terminó'); eq(X().games.hang.best, 4);
+    /* letras: una al revés (mal), una saltada y el resto bien */
+    ACTIONS.game(el({ g: 'scr' })); ok(A && A.kind === 'scr', 'letras no abre'); look('letras');
+    const build = word => { const used = new Set(); [...word].forEach(c => { const i = A.letters.findIndex((x, k) => x === c && !used.has(k)); used.add(i); ACTIONS.gletter(el({ i: String(i) })); }); };
+    const first = A.words[0][0].toLowerCase(), rev = [...first].reverse().join('');
+    if (rev !== first) { build(rev); eq(A.state, 'play', 'aceptó la palabra al revés'); eq(A.built.length, 0, 'no limpió las letras'); }
+    ACTIONS.gletter(el({ i: '0' })); ACTIONS.gunletter(el({ k: '0' })); eq(A.built.length, 0);
+    ACTIONS.gskip(); eq(A.state, 'lost'); look('letras saltada'); ACTIONS.gnext();
+    n = 0; while (A && n++ < 10) { build(A.words[A.wi][0].toLowerCase()); eq(A.state, 'won', 'no aceptó la palabra bien ordenada'); look('letras ganada'); ACTIONS.gnext(); }
+    ok(!A, 'letras no terminó'); eq(X().games.scr.best, 5);
+    /* contra reloj: 3 buenas, 1 mala y se acaba el tiempo */
+    ACTIONS.game(el({ g: 'rush' })); ok(A && A.kind === 'rush', 'contra reloj no abre'); look('contra reloj');
+    for (let k = 0; k < 3; k++) ACTIONS.grush(el({ i: String(A.cur.opts.indexOf(A.cur.ans)) }));
+    ACTIONS.grush(el({ i: String(A.cur.opts.findIndex(o => o !== A.cur.ans)) })); eq([A.score, A.miss], [3, 1]);
+    A.end = Date.now() - 1; ACTIONS.grush(el({ i: '0' }));
+    ok(!A && /Juego terminado/.test(view()), 'contra reloj no terminó'); eq(X().games.rush.best, 3); ok(S.ach.gamer, 'no dio el logro Jugadora');
+    ACTIONS.game(el({ g: 'rush' })); ACTIONS.quit(); ok(!A, 'la ✕ no cerró el juego'); eq(tab, 'review');
+  });
+  const withFetch = async (fake, fn) => { const real = fetch; fetch = fake; TR_CACHE.clear(); try { await fn(); } finally { fetch = real; TR_CACHE.clear(); } };
+  const mm = t => async () => ({ ok: true, json: async () => ({ responseData: { translatedText: t }, responseStatus: 200, quotaFinished: false }) });
+  test('Traductor: texto, sentido automático, historial y tarjetas', async () => {
+    S = fresh(); await loadDict();
+    eq(guessLang('¿Dónde está el baño?'), 'es'); eq(guessLang('Where is the bathroom, please?'), 'en');
+    ok(trChunks('This is a sentence. '.repeat(60)).every(c => c.length <= 450), 'un trozo quedó muy largo');
+    go('home'); eq((view().match(/class="tool-btn"/g) || []).length, 4, 'Inicio debe tener los 4 botones del traductor');
+    ACTIONS.translate(el({ mode: 'text' })); eq(tab, 'translate'); look('traductor');
+    await withFetch(mm('Where is the bathroom?'), async () => {
+      TR.text = '¿Dónde está el baño?'; await doTranslate();
+      eq(TR.res.dst, 'Where is the bathroom?'); ok(!TR.res.offline); look('traducción');
+      eq(S.tr.length, 1, 'no guardó el historial'); ACTIONS.trsave(); ok(S.cards['Where is the bathroom?'], 'no guardó la tarjeta');
+    });
+    await withFetch(mm('Me gusta el caf&#233; &amp; el t&#233;'), async () => {
+      TR = newTR(); TR.text = 'I like coffee and tea'; await doTranslate();
+      eq(TR.from, 'en', 'no cambió solo el sentido a inglés → español'); eq(TR.res.dst, 'Me gusta el café & el té', 'no limpió los códigos del texto'); look('traducción al español');
+    });
+    ACTIONS.trswap(); ok(TR.manual && TR.from === 'es'); ACTIONS.truse(el({ i: '0' })); ok(TR.res && TR.res.dst, 'el historial no se puede reusar'); look('traductor con historial');
+    ACTIONS.back(); eq(tab, 'home', 'la ✕ del traductor debe volver a Inicio');
+  });
+  test('Traductor sin internet o sin cupo: palabra por palabra con el diccionario', async () => {
+    S = fresh(); await loadDict(); go('translate');
+    TR.text = 'The house is big'; TR.from = 'en'; TR.manual = true; await doTranslate();
+    ok(TR.res.offline && /casa/.test(TR.res.dst), `sin internet debería traducir con el diccionario (dio: ${TR.res.dst})`); eq((S.tr || []).length, 0, 'lo aproximado no va al historial'); look('traducción sin internet');
+    ok(/house|home/.test(roughTranslate('la casa', 'es')), `español → inglés sin internet (dio: ${roughTranslate('la casa', 'es')})`);
+    await withFetch(mm('MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY'), async () => { const r = await translateText('good morning', 'en'); ok(r.offline && r.quota, 'no reconoció que se acabó el cupo'); });
+  });
+  test('Traductor por voz y por foto: pantallas y avisos', () => {
+    S = fresh(); TR = newTR(); ACTIONS.translate(el({ mode: 'voice' })); eq([TR.mode, TR.from], ['voice', 'es']); look('traductor voz');
+    ACTIONS.trmic(); ok(TR.micErr && !TR.mic, 'sin reconocimiento de voz debe avisar'); look('traductor voz con aviso');
+    ACTIONS.trmode(el({ v: 'photo' })); eq([TR.mode, TR.from], ['photo', 'en'], 'la foto parte de inglés a español'); look('traductor foto');
+    eq(cleanOcr('MENU  \n\n\n\nSoup ~~ of the day\n'), 'MENU\n\nSoup   of the day');
+    TR.text = 'Soup of the day'; render(); ok(view().includes('id="trIn"') && view().includes('Otra foto'), 'el texto leído debe poder corregirse'); look('traductor foto con texto');
+  });
+  test('Lector: pegar un texto, leerlo por frases y traducir', async () => {
+    S = fresh(); go('home'); ACTIONS.tab(el({ tab: 'reader' })); look('lector vacío');
+    rdDraft = 'hi'; ACTIONS.rdopen(); ok(!RDR, 'aceptó un texto demasiado corto');
+    const txt = 'My sister lives in London. She works in a hospital!\nDo you want to visit her?';
+    eq(readerSentences(txt).length, 3);
+    rdDraft = txt; ACTIONS.rdopen(); ok(RDR && S.texts.length === 1, 'no guardó el texto'); eq((view().match(/class="rd-s"/g) || []).length, 3); look('lector');
+    await withFetch(mm('Mi hermana vive en Londres.'), async () => { await readerTranslate([0]); });
+    eq(readerText().tr[0], 'Mi hermana vive en Londres.'); ok(view().includes('Mi hermana vive en Londres.'), 'no muestra la traducción');
+    ACTIONS.rdclose(); ok(!RDR && view().includes('Tus textos')); look('lector con textos');
+    ACTIONS.rdpick(el({ t: String(S.texts[0].t) })); ok(RDR); ACTIONS.rdclose(); ACTIONS.rddel(el({ t: String(S.texts[0].t) })); eq(S.texts.length, 0);
+    ACTIONS.back(); eq(tab, 'home');
+  });
+  test('El diccionario ofrece traducir una frase completa', async () => {
+    S = fresh(); await loadDict(); go('home'); ACTIONS.dict(); dictSearchQ = 'how are you today'; renderSearch();
+    ok(ELS['#dqres'].innerHTML.includes('data-act="translate"'), 'falta el botón para traducir la frase'); look('buscador con frase', ELS['#dqres'].innerHTML);
+    ACTIONS.translate(el({ mode: 'text', t: dictSearchQ })); eq(tab, 'translate'); eq(TR.text, 'how are you today'); dictSearchQ = '';
+  });
+  test('Calendario de racha, diplomas y recordatorio', () => {
+    rich(); go('stats'); ok(view().includes('Tu calendario') && view().includes('class="on today"'), 'el calendario no marca hoy'); look('progreso con calendario');
+    ACTIONS.calmove(el({ v: '-1' })); ok(calOff === -1 && !view().includes('class="on today"')); ACTIONS.calmove(el({ v: '1' })); ACTIONS.calmove(el({ v: '1' })); eq(calOff, 0, 'no se puede ir al futuro');
+    /* terminar la última lección de A1 da el diploma */
+    S = fresh(); go('lessons'); const a1 = levelLessons('A1'); a1.slice(0, -1).forEach(l => { S.done[l.id] = 3; });
+    playLesson(a1[a1.length - 1].id); ok(view().includes('Completaste todo el nivel A1'), 'el resumen no avisa del diploma'); eq(X().diplomas.A1, dayStr());
+    go('stats'); ok(view().includes('data-act="diploma" data-v="A1"'), 'Progreso no muestra el diploma'); S.name = 'Kata';
+    ACTIONS.diploma(el({ v: 'A1' })); ok(/Kata/.test(sheet()) && /A1/.test(sheet()), 'el diploma no trae el nombre y el nivel'); look('diploma'); closeSheet();
+    const ics = reminderICS('07:30'); ok(/RRULE:FREQ=DAILY/.test(ics) && /DTSTART:\d{8}T073000/.test(ics) && /BEGIN:VALARM/.test(ics), 'el recordatorio está mal armado');
+    go('profile'); ok(view().includes('id="setRemind"'), 'Perfil no tiene el recordatorio'); ok(buildSummary().extras.diplomas.A1, 'los diplomas no van en el respaldo');
   });
 
   /* ============ 7. Navegación ============ */

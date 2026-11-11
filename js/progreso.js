@@ -45,6 +45,7 @@ function renderStats() {
     <div class="stat">📅<b>${daysPracticed}</b><small>Días practicados</small></div>
     <div class="stat">🧠<b>${mastered}</b><small>Palabras dominadas</small></div>
   </div>
+  ${calendarHTML()}${diplomasHTML()}
   <section class="card"><h2>🎯 Precisión por ejercicio</h2>
     ${types.length ? types.map(([k, label]) => { const t = S.types[k], p = pct(t.ok, t.ok + t.fail); return `<div class="type-row"><div class="row between"><span>${label}</span><span class="muted small">${p}% · ${t.ok + t.fail} intentos</span></div><div class="bar thin ${p < 60 ? 'low' : ''}"><i style="width:${p}%"></i></div></div>`; }).join('') : '<p class="muted small">Completa una lección para ver tus estadísticas.</p>'}
   </section>
@@ -103,6 +104,8 @@ function buildSummary() {
       };
     })(),
     tarjetas: { total: Object.keys(S.cards).length, por_caja: [1, 2, 3, 4, 5].map(b => Object.values(S.cards).filter(c => c.box === b).length) },
+    extras: { lecturas_hechas: Object.keys(X().read).length, historias_escuchadas: Object.keys(X().listen).length, pares_de_sonidos: X().pairs, juegos: X().games,
+      prueba_de_nivel: X().placed || 'no hecha', diplomas: X().diplomas, traducciones_guardadas: (S.tr || []).length },
     version_app: APP_VERSION,
     errores_de_la_app: (S.errors || []).slice(-10).map(e => ({ fecha: new Date(e.t).toLocaleString('es-CL'), version: e.v, donde: e.where, error: e.msg, detalle: e.at }))
   };
@@ -175,9 +178,108 @@ function renderProfile() {
     ${S.recordVoice !== false ? `<div class="field">Repetir mi voz al terminar<div class="seg mini"><button class="${S.autoReplay !== false ? 'on' : ''}" data-act="autoreplay" data-v="1">🔁 Sí</button><button class="${S.autoReplay === false ? 'on' : ''}" data-act="autoreplay" data-v="0">No</button></div></div>` : ''}
     <label class="field">Velocidad de la voz: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
+    <div class="field">⏰ Recordatorio diario
+      <div class="row gap" style="margin-top:6px"><input id="setRemind" type="time" value="${esc(S.remind || '20:00')}" style="flex:1"><button class="btn ghost" data-act="remind">Agregar al calendario</button></div>
+      <small class="muted block" style="margin-top:6px">Crea un evento que se repite todos los días en el calendario de tu iPhone, con aviso a esa hora.</small></div>
     <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
   ${(S.errors || []).length ? `<p class="muted small center">⚠️ La app anotó ${S.errors.length} ${S.errors.length === 1 ? 'error' : 'errores'}: van en tu archivo de progreso para que Claude los revise. <button class="link-inline" data-act="clearerr">Borrarlos</button></p>` : ''}
   <p class="muted small center">Fluenta ${APP_VERSION} · tu app de inglés, gratis para siempre 💜</p>
   <p class="muted small center">Diccionario basado en la lista NGSL 1.2 (Browne, Culligan y Phillips, licencia CC BY-SA 4.0). Respaldo en internet: Wiktionary.</p>`;
+}
+
+/* ===== Calendario de racha (en Progreso): los días que practicaste ===== */
+const MONTHS_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+let calOff = 0;   /* 0 = este mes, -1 = el anterior… */
+function calendarHTML() {
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + calOff);
+  const y = d.getFullYear(), m = d.getMonth(), first = (d.getDay() + 6) % 7, n = new Date(y, m + 1, 0).getDate(), now = dayStr();
+  let cells = '<i></i>'.repeat(first), active = 0;
+  for (let k = 1; k <= n; k++) {
+    const key = `${y}-${pad(m + 1)}-${pad(k)}`, on = S.days[key] && S.days[key].xp > 0;
+    if (on) active++;
+    cells += `<span class="${on ? 'on' : ''} ${key === now ? 'today' : ''}">${k}</span>`;
+  }
+  return `<section class="card"><div class="row between"><h2>🗓️ Tu calendario</h2><div class="row gap-s"><button class="icon-btn sm" data-act="calmove" data-v="-1" aria-label="Mes anterior">‹</button><b class="cal-title">${MONTHS_FULL[m]} ${y}</b><button class="icon-btn sm" data-act="calmove" data-v="1" aria-label="Mes siguiente" ${calOff >= 0 ? 'disabled' : ''}>›</button></div></div>
+    <div class="cal">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(x => `<b>${x}</b>`).join('')}${cells}</div>
+    <p class="muted small center">${active} ${active === 1 ? 'día practicado' : 'días practicados'} en ${MONTHS_FULL[m].toLowerCase()} · racha actual: ${currentStreak()} 🔥</p></section>`;
+}
+
+/* ===== Diplomas: uno por cada nivel completo ===== */
+const levelLessons = lv => LESSONS.filter(u => u.level === lv).flatMap(u => u.lessons);
+const levelDone = lv => levelLessons(lv).every(l => S.done[l.id]);
+/* Al terminar una lección: si con ella se completó el nivel, anota la fecha y devuelve el nivel */
+function newDiploma(id) {
+  const lv = LESSON_LEVEL.get(id);
+  if (!lv || X().diplomas[lv] || !levelDone(lv)) return '';
+  X().diplomas[lv] = dayStr(); save();
+  return lv;
+}
+function diplomasHTML() {
+  LEVELS.forEach(lv => { if (levelDone(lv) && !X().diplomas[lv]) X().diplomas[lv] = dayStr(); });   /* niveles terminados antes de la 3.8 */
+  return `<section class="card"><h2>🎓 Tus diplomas</h2><div class="dips">${LEVELS.map(lv => {
+    const ls = levelLessons(lv), n = ls.filter(l => S.done[l.id]).length, got = X().diplomas[lv] && n === ls.length;
+    return got ? `<button class="dip on" data-act="diploma" data-v="${lv}"><span>🎓</span><b>${lv}</b><small>Ver</small></button>` : `<div class="dip"><span>🔒</span><b>${lv}</b><small>${n}/${ls.length}</small></div>`;
+  }).join('')}</div><p class="muted small center">Completa todas las lecciones de un nivel para ganar su diploma.</p></section>`;
+}
+const longDate = day => new Date(day + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+function openDiploma(lv) {
+  const day = X().diplomas[lv]; if (!day) return;
+  openSheet(`${sheetHead('🎓 Tu diploma')}<div class="diploma"><span class="dip-brand">Fluenta</span><div class="dip-emoji">🎓</div><p>Este diploma certifica que</p>
+    <b class="dip-name">${esc(S.name || 'Estudiante de Fluenta')}</b><p>completó todas las lecciones de inglés del nivel</p><b class="dip-level">${lv}</b><p class="dip-date">${esc(longDate(day))}</p></div>
+    <button class="btn primary wide" data-act="dipsave" data-v="${lv}">📤 Guardar o compartir como imagen</button>`, 'diploma');
+}
+/* El diploma como imagen (para guardarlo o compartirlo) */
+function saveDiploma(lv) {
+  const day = X().diplomas[lv]; if (!day) return;
+  const c = document.createElement('canvas'), W = c.width = 1080, H = c.height = 1350, g = c.getContext('2d');
+  const css = getComputedStyle(document.documentElement), accent = css.getPropertyValue('--accent').trim() || '#7b5cf0', accent2 = css.getPropertyValue('--accent2').trim() || '#9d86ff';
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, accent2); bg.addColorStop(1, accent);
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#fff'; g.beginPath();
+  if (g.roundRect) g.roundRect(70, 70, W - 140, H - 140, 60); else g.rect(70, 70, W - 140, H - 140);
+  g.fill();
+  g.textAlign = 'center';
+  const text = (t, y, size, color, weight = '400') => { g.font = `${weight} ${size}px Poppins, system-ui, sans-serif`; g.fillStyle = color; g.fillText(t, W / 2, y, W - 240); };
+  text('FLUENTA', 220, 44, accent, '700');
+  text('🎓', 420, 170, '#000');
+  text('Este diploma certifica que', 540, 40, '#5e648d');
+  text(S.name || 'Estudiante de Fluenta', 650, 84, '#24254a', '700');
+  text('completó todas las lecciones', 750, 40, '#5e648d');
+  text('de inglés del nivel', 805, 40, '#5e648d');
+  text(lv, 990, 190, accent, '700');
+  text(longDate(day), 1130, 38, '#5e648d');
+  text('k4t4l1n4.github.io/fluenta', 1210, 28, '#8a8eb2');
+  c.toBlob(blob => {
+    if (!blob) { toast('⚠️ No pude crear la imagen'); return; }
+    const name = `fluenta-diploma-${lv}.png`;
+    try {
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: `Diploma ${lv} · Fluenta` }).catch(() => {}); return; }
+    } catch (e) {}
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast('📥 Diploma guardado');
+  }, 'image/png');
+}
+
+/* ===== Recordatorio diario: un evento que se repite cada día en el calendario del teléfono ===== */
+function reminderICS(time) {
+  const [h, m] = (/^\d\d:\d\d$/.test(time || '') ? time : '20:00').split(':').map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0);
+  if (d < new Date()) d.setDate(d.getDate() + 1);
+  const local = x => `${x.getFullYear()}${pad(x.getMonth() + 1)}${pad(x.getDate())}T${pad(x.getHours())}${pad(x.getMinutes())}00`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Fluenta//Recordatorio//ES', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', `UID:fluenta-recordatorio-${Date.now()}@fluenta`, `DTSTAMP:${stamp}`,
+    `DTSTART:${local(d)}`, 'DURATION:PT15M', 'RRULE:FREQ=DAILY', 'SUMMARY:Practicar inglés en Fluenta 💜', 'DESCRIPTION:Unos minutos al día hacen la diferencia.\\nhttps://k4t4l1n4.github.io/fluenta/', 'URL:https://k4t4l1n4.github.io/fluenta/',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Practicar inglés en Fluenta', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+}
+function addReminder() {
+  const ics = reminderICS(S.remind), a = document.createElement('a');
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+  if (ios) { a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics); a.target = '_blank'; a.rel = 'noopener'; }   /* Safari abre el evento con «Agregar al calendario» */
+  else { a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'fluenta-recordatorio.ics'; }
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('📅 Abre el evento y toca «Agregar»');
 }

@@ -199,5 +199,6 @@ function renderSearch() {
   box.innerHTML = (res.length ? `<div class="dq-list">${res.map(({ e, note }) => `<button class="dq-row" data-act="word" data-w="${esc(e.w)}"><b>${esc(e.w)}</b><span class="muted grow">${esc(note ? `${e.es} · ${note}` : e.es)}</span>${S.cards[e.w] ? '<span class="add-btn added">✓</span>' : ''}</button>`).join('')}</div>` : '')
     + (sents.length ? `<span class="label">En tus lecciones, frases y diálogos</span>${sents.map(exampleHTML).join('')}` : '')
     + (!res.length && english ? `<button class="btn ghost wide" data-act="word" data-w="${esc(q)}">🌐 Buscar “${esc(q)}” en internet</button>` : '')
+    + (/\s/.test(q) && !L && !D && !F && !P && !W && !A ? `<button class="btn ghost wide" data-act="translate" data-mode="text" data-t="${esc(q)}">🌐 Traducir la frase completa</button>` : '')
     + (!res.length && !sents.length && !english ? '<p class="muted center small">No encontré esa palabra. Prueba con otra forma, por ejemplo el infinitivo ("comer").</p>' : '');
 }

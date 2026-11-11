@@ -72,7 +72,8 @@ function revCatsHTML() {
     [weakSounds(12).length, revPronCat], [dlgN, revDlgCat], [writingDrills(99).length, revWriteCat], [S.packs.length + claudeSentences().length, revClaudeCat]];
   const busy = cats.filter(([n]) => n), calm = cats.filter(([n]) => !n);
   return (busy.length ? `<div class="cats">${busy.map(([, f]) => f()).join('')}</div>` : '')
-    + (calm.length ? subLabel(busy.length ? '✅ Al día' : '✅ Todo al día') + `<div class="cats calm">${calm.map(([, f]) => f()).join('')}</div>` : '');
+    + (calm.length ? subLabel(busy.length ? '✅ Al día' : '✅ Todo al día') + `<div class="cats calm">${calm.map(([, f]) => f()).join('')}</div>` : '')
+    + subLabel('🎮 Para jugar') + `<div class="cats">${gamesCat()}</div>`;
 }
 function revTenseCat() {
   const all = weakTense(), acc = TENSES.map(t => [t, tenseStat(t.id)]).filter(([, p]) => p != null);
