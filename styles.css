@@ -560,6 +560,7 @@ a.btn{text-decoration:none}
 /* ===== 3.8 · Traductor y lector ===== */
 .tools h2{margin-bottom:10px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grid4.three{grid-template-columns:repeat(3,1fr)}
 .tool-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:16px;background:var(--surface2);transition:transform .15s}
 .tool-btn:active{transform:scale(.94)}
 .tool-btn span{font-size:24px;line-height:1.2}

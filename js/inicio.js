@@ -178,13 +178,15 @@ function installTip() {
 }
 /* Tu avance en cada sección (los círculos de Inicio): al tocar uno se abre esa sección */
 function sectionStats() {
-  const ls = allLessons(), phrases = allPhrases(), cards = Object.values(S.cards);
+  const ls = allLessons(), phrases = allPhrases(), cards = Object.values(S.cards), texts = S.texts || [];
   const topics = new Set(((S.writing && S.writing.texts) || []).map(e => e.topic));
   return [
     { attrs: 'data-act="tab" data-tab="lessons" data-cat="course"', icon: 'book', title: 'Lecciones', p: pct(ls.filter(l => S.done[l.id]).length, ls.length) },
     { attrs: 'data-act="tenses"', icon: 'clock', title: 'Tiempos', p: pct(TENSE_LESSONS.filter(l => S.done[l.id]).length, TENSE_LESSONS.length) },
-    { attrs: 'data-act="tab" data-tab="lessons" data-cat="talk"', icon: 'chat', title: 'Diálogos', p: pct(DIALOGS.filter(d => S.dialogs[d.id]).length, DIALOGS.length) },
-    { attrs: 'data-act="tab" data-tab="lessons" data-cat="talk"', icon: 'mic', title: 'Pronunciación', p: pct(phrases.filter(p => (S.pron[p] || 0) >= 70).length, phrases.length) },
+    /* Diálogos y pronunciación están en la misma parte de Lecciones («Hablar»): antes eran dos círculos que llevaban
+       al mismo lugar. Ahora es uno solo, con el promedio de los dos avances, y en su lugar entró Cuentos (3.9.4). */
+    { attrs: 'data-act="tab" data-tab="lessons" data-cat="talk"', icon: 'chat', title: 'Hablar', p: Math.round((pct(DIALOGS.filter(d => S.dialogs[d.id]).length, DIALOGS.length) + pct(phrases.filter(p => (S.pron[p] || 0) >= 70).length, phrases.length)) / 2) },
+    { attrs: 'data-act="tab" data-tab="reader"', icon: 'story', title: 'Cuentos', p: pct(texts.filter(x => x.read).length, texts.length) },
     { attrs: 'data-act="tab" data-tab="lessons" data-cat="write"', icon: 'pen', title: 'Escribir', p: pct(WRITE_TOPICS.filter(t => topics.has(t.id)).length, WRITE_TOPICS.length) },
     { attrs: 'data-act="tab" data-tab="review" data-cat="cards"', icon: 'cards', title: 'Tarjetas', p: pct(cards.filter(c => c.box >= 4).length, cards.length) }
   ];
@@ -215,7 +217,7 @@ function renderHome() {
   </section>
   ${heroResume ? '' : resumeCard()}
   <section class="card tools"><h2>🌐 Traductor</h2>
-    <div class="grid4">${[['data-act="translate" data-mode="text"', '✏️', 'Texto'], ['data-act="translate" data-mode="voice"', '🗣️', 'Voz'], ['data-act="translate" data-mode="photo"', '📷', 'Foto'], ['data-act="tab" data-tab="reader"', '📚', 'Cuentos']]
+    <div class="grid4 three">${[['data-act="translate" data-mode="text"', '✏️', 'Texto'], ['data-act="translate" data-mode="voice"', '🗣️', 'Voz'], ['data-act="translate" data-mode="photo"', '📷', 'Foto']]
       .map(([a, i, l]) => `<button class="tool-btn" ${a}><span>${i}</span><b>${l}</b></button>`).join('')}</div></section>
   <section class="card daily"><div id="wod"></div>${verbOfDayHTML()}</section>
   <section class="card sec-box"><h2>Tus secciones</h2>

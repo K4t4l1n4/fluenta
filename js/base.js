@@ -31,7 +31,7 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const APP_VERSION = '3.9.3';
+const APP_VERSION = '3.9.4';
 /* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
 const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
   .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
@@ -57,7 +57,8 @@ const ICONS = {
   chev: '<path d="m6 9 6 6 6-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
-  swap: '<path d="M7 7h13l-3-3"/><path d="M17 17H4l3 3"/>'
+  swap: '<path d="M7 7h13l-3-3"/><path d="M17 17H4l3 3"/>',
+  story: '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>'
 };
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 

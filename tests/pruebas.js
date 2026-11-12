@@ -153,6 +153,30 @@
     ok(!view().includes('Continuar donde quedaste'), 'se repite "Continuar donde quedaste"');
     eq((view().match(/class="sec-mini/g) || []).length, 6, 'deben ser 6 círculos de secciones');
   });
+  test('Inicio: cada círculo lleva a un lugar distinto; Hablar junta diálogos y pronunciación y Cuentos tiene el suyo', () => {
+    S = fresh(); go('home');
+    const secs = sectionStats();
+    eq(secs.map(s => s.title), ['Lecciones', 'Tiempos', 'Hablar', 'Cuentos', 'Escribir', 'Tarjetas']);
+    eq(new Set(secs.map(s => s.attrs)).size, secs.length, 'hay dos círculos que llevan al mismo lugar');
+    secs.forEach(s => ok(ICONS[s.icon], `el círculo «${s.title}» no tiene ícono`));
+    eq((view().match(/class="sec-mini/g) || []).length, 6, 'deben ser 6 círculos de secciones');
+    /* Cuentos está una sola vez en Inicio: en los círculos, ya no en el traductor */
+    eq((view().match(/class="tool-btn"/g) || []).length, 3, 'el traductor debe quedar con 3 botones');
+    eq((view().match(/data-tab="reader"/g) || []).length, 1, 'Cuentos debe estar una sola vez en Inicio');
+    ok(/class="sec-mini c4" data-act="tab" data-tab="reader"/.test(view()), 'Cuentos no está en el lugar que dejó Pronunciación');
+    /* Hablar: el promedio de diálogos completados y frases bien dichas */
+    eq([secs[2].p, secs[3].p], [0, 0]);
+    DIALOGS.forEach(d => { S.dialogs[d.id] = 1; }); eq(sectionStats()[2].p, 50, 'con todos los diálogos y ninguna frase, Hablar debe ir en 50 %');
+    allPhrases().forEach(p => { S.pron[p] = 90; }); eq(sectionStats()[2].p, 100);
+    /* Cuentos: cuántos de los guardados ya leíste */
+    S.texts = [{ t: 1, text: 'One two three four.', tr: {}, read: true }, { t: 2, text: 'Five six seven eight.', tr: {} }];
+    eq(sectionStats()[3].p, 50, 'el círculo de Cuentos no cuenta los leídos');
+    go('home'); ACTIONS.tab(el({ tab: 'reader' })); eq(tab, 'reader'); ok(view().includes('data-act="rdnew"'), 'el círculo no abre Mis cuentos');
+    ACTIONS.back(); eq(tab, 'home', 'desde Mis cuentos no vuelve a Inicio');
+    ACTIONS.tab(el({ tab: 'lessons', cat: 'talk' })); eq([tab, openCat.lessons], ['lessons', 'talk'], 'Hablar no abre su parte de Lecciones');
+    ok(view().includes('Practicar frase por frase') && DIALOGS.every(d => view().includes(esc(d.title))), 'en Hablar no están los diálogos y la pronunciación');
+    openCat.lessons = null;
+  });
   test('Inicio: sin nombre, el círculo del perfil muestra la carita entera', () => { S = fresh(); eq(initial(), '🙂'); S.name = 'kata'; eq(initial(), 'K'); });
 
   /* ============ 4. Ejercicios de todas las lecciones ============ */
@@ -409,7 +433,7 @@
     S = fresh(); await loadDict();
     eq(guessLang('¿Dónde está el baño?'), 'es'); eq(guessLang('Where is the bathroom, please?'), 'en');
     ok(trChunks('This is a sentence. '.repeat(60)).every(c => c.length <= 450), 'un trozo quedó muy largo');
-    go('home'); eq((view().match(/class="tool-btn"/g) || []).length, 4, 'Inicio debe tener los 4 botones del traductor');
+    go('home'); eq((view().match(/class="tool-btn"/g) || []).length, 3, 'Inicio debe tener los 3 botones del traductor (Cuentos pasó a «Tus secciones»)');
     ACTIONS.translate(el({ mode: 'text' })); eq(tab, 'translate'); look('traductor');
     await withFetch(mm('Where is the bathroom?'), async () => {
       TR.text = '¿Dónde está el baño?'; await doTranslate();
