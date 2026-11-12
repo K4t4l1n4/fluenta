@@ -13,10 +13,16 @@ if ('speechSynthesis' in window) { loadVoice(); speechSynthesis.onvoiceschanged 
       bajar de 0.9 a 0.5 casi no se oye (por eso Kata sentía la tortuga igual al parlante, sobre todo en una
       palabra sola). Desde la 3.9.2 la tortuga va mucho más abajo, Kata la elige en Perfil › Ajustes
       (S.slowRate; 0 = la que trae la app) y siempre queda bien por debajo de la voz normal.
+      En la 3.9.3 pidió «un poco más lento»: en el iPhone ahora parte en 0.1, que es el piso
+      (Safari limita `rate` entre 0.1 y 10). Más lento que eso no se puede pedir con la velocidad.
    2) La frase se dice por partes cortas: entre una parte y otra queda una pausa. Las partes no
       terminan en "a", "the", "to"…: dichas solas se pronuncian distinto. */
-const IOS_VOICE = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-const turtlePick = () => S.slowRate || (IOS_VOICE ? 0.2 : 0.4);
+const iosVoice = (ua = navigator.userAgent, touch = navigator.maxTouchPoints) => /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touch > 1);
+const IOS_VOICE = iosVoice();
+const turtleAuto = (ios = IOS_VOICE) => ios ? 0.1 : 0.4;
+const turtlePick = () => S.slowRate || turtleAuto();
+const rateTxt = v => String(Math.round(v * 100) / 100) + 'x';
+const turtleTxt = v => rateTxt(v) + (v <= 0.1 ? ' (mínimo)' : '');
 const turtleRate = () => Math.max(0.1, Math.min(turtlePick(), Math.floor(S.rate * 6) / 10));
 /* Ajustes › «Escucha la diferencia»: lo que duró la misma frase dicha normal (n) y lenta (s) */
 const VT = { text: 'Thank you very much', hint: 'Mientras más a la izquierda dejes la tortuga, más lenta habla.', n: 0, s: 0, u: null };

@@ -566,6 +566,11 @@
   test('🐢 La tortuga siempre va bien más lenta que el parlante, también en una palabra sola', () => {
     S = fresh(); eq(S.slowRate, 0, 'la tortuga no parte en automático');
     ok(turtleRate() < 0.5, 'la tortuga quedó en 0.5: en el iPhone eso suena casi igual que la voz normal');
+    /* en el iPhone parte en lo más lento que Safari acepta (0.1); en el resto, en 0.4 */
+    ok(iosVoice('Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1', 5), 'no reconoce un iPhone');
+    ok(iosVoice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15', 5), 'no reconoce un iPad (se presenta como Mac con pantalla táctil)');
+    ok(!iosVoice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15', 0) && !iosVoice('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36', 0), 'toma un computador por iPhone');
+    eq([turtleAuto(true), turtleAuto(false)], [0.1, 0.4], 'la velocidad automática de la tortuga cambió');
     [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2].forEach(rate => [0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach(slow => {
       S.rate = rate; S.slowRate = slow; spoken.length = 0;
       speak('water'); speak('water', true);
@@ -589,10 +594,13 @@
     ELS['#slowVal'] = el(); ELS['#rateVal'] = el(); ELS['#voiceCmp'] = el();
     let clock = 5000; Date.now = () => clock;
     try {
+      input({ target: { id: 'setSlow', value: '0.15' } });
+      eq(S.slowRate, 0.15); eq(ELS['#slowVal'].textContent, '0.15x');
+      spoken.length = 0; speak('water', true); eq(spoken[0].rate, 0.15, 'la tortuga no usa los pasos finos');
       input({ target: { id: 'setSlow', value: '0.1' } });
-      eq(S.slowRate, 0.1); eq(ELS['#slowVal'].textContent, '0.1x'); eq(JSON.parse(__t.store.get(KEY)).slowRate, 0.1, 'la velocidad de la tortuga no se guardó');
+      eq(S.slowRate, 0.1); eq(ELS['#slowVal'].textContent, '0.1x (mínimo)', 'no avisa que la tortuga ya está en lo más lento'); eq(JSON.parse(__t.store.get(KEY)).slowRate, 0.1, 'la velocidad de la tortuga no se guardó');
       spoken.length = 0; speak('water', true); eq(spoken[0].rate, 0.1, 'la tortuga no usa la velocidad elegida');
-      go('profile'); ok(view().includes('id="setSlow" type="range" min="0.1" max="0.5" step="0.1" value="0.1"'), 'Ajustes no muestra la velocidad elegida');
+      go('profile'); ok(view().includes('<b id="slowVal">0.1x (mínimo)</b><input id="setSlow" type="range" min="0.1" max="0.5" step="0.05" value="0.1"'), 'Ajustes no muestra la velocidad elegida');
       /* comparar: cada botón dice la misma frase una sola vez y anota cuánto duró */
       spoken.length = 0; const waiting = __t.pending();
       ACTIONS.voicetest(el({})); eq(spoken.length, 1); eq(spoken[0].rate, S.rate); eq(__t.pending(), waiting, 'la voz quedó esperando un temporizador');

@@ -233,7 +233,7 @@ document.addEventListener('input', e => {
   else if (t.id === 'rdTitle') rdTitle = t.value;
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; VT.n = VT.s = 0; voiceTestDraw(); save(); }
-  else if (t.id === 'setSlow') { S.slowRate = +t.value; $('#slowVal').textContent = S.slowRate.toFixed(1) + 'x'; VT.s = 0; voiceTestDraw(); save(); }
+  else if (t.id === 'setSlow') { S.slowRate = +t.value; $('#slowVal').textContent = turtleTxt(S.slowRate); VT.s = 0; voiceTestDraw(); save(); }
   else if (t.id === 'setAccent') previewAccent(t.value);   /* se ve al instante mientras eliges */
   else if (t.id === 'setSoundVol') { S.soundVol = +t.value; save(); }
 });

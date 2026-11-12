@@ -178,7 +178,7 @@ function renderProfile() {
       <small class="muted block" style="margin-top:6px">Para escucharte, comparar con la voz modelo y medir tu fluidez. La grabación no se guarda.</small></div>
     ${S.recordVoice !== false ? `<div class="field">Repetir mi voz al terminar<div class="seg mini"><button class="${S.autoReplay !== false ? 'on' : ''}" data-act="autoreplay" data-v="1">🔁 Sí</button><button class="${S.autoReplay === false ? 'on' : ''}" data-act="autoreplay" data-v="0">No</button></div></div>` : ''}
     <label class="field">Velocidad de la voz 🔊: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
-    <label class="field">Velocidad de la tortuga 🐢: <b id="slowVal">${turtlePick().toFixed(1)}x</b><input id="setSlow" type="range" min="0.1" max="0.5" step="0.1" value="${turtlePick()}"></label>
+    <label class="field">Velocidad de la tortuga 🐢: <b id="slowVal">${turtleTxt(turtlePick())}</b><input id="setSlow" type="range" min="0.1" max="0.5" step="0.05" value="${turtlePick()}"></label>
     <div class="field">Escucha la diferencia
       <div class="row gap" style="margin-top:6px"><button class="btn ghost grow" data-act="voicetest">🔊 Normal</button><button class="btn ghost grow" data-act="voicetest" data-slow="1">🐢 Lenta</button></div>
       <small class="muted block" id="voiceCmp" style="margin-top:6px">${esc(voiceTestText())}</small></div>
