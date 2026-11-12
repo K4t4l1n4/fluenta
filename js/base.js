@@ -31,7 +31,7 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const APP_VERSION = '3.8.1';
+const APP_VERSION = '3.9';
 /* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
 const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
   .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
@@ -70,12 +70,12 @@ const DEFAULT = {
   resume: null, cardDir: 'en', cardWrite: false, favTip: false, recordVoice: true, autoReplay: true,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
   writing: { texts: [], errs: {} }, tense: {}, verbs: {}, errors: [],
-  extra: {}, tr: [], texts: [], remind: '20:00'   /* 3.8: lecturas, juegos, prueba de nivel · traducciones · textos del lector · hora del recordatorio */
+  extra: {}, tr: [], texts: [], remind: '20:00'   /* 3.8: lecturas, juegos, prueba de nivel · traducciones · cuentos (js/cuentos.js) · hora del recordatorio */
 };
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT));
 let S = load();
 function load() { try { const raw = localStorage.getItem(KEY); if (raw) return { ...fresh(), ...JSON.parse(raw) }; } catch (e) {} return fresh(); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }   /* false = el teléfono no dejó guardar */
 /* ===== Si algo falla: la app avisa y lo anota (va en el archivo de progreso, para que Claude lo revise) ===== */
 let lastErrToast = 0;
 function logError(err, where = '') {

@@ -19,6 +19,7 @@ function go(t) {
   if (t === 'cards') t = 'review';
   if (PAGE_BACK[t] && t !== tab && pageBack[tab] !== t) pageBack[t] = tab;
   if (A && A.tick) clearInterval(A.tick);   /* el reloj de «Contra reloj» */
+  if (t !== 'reader') { rdFlush(); RDR = null; rdAdd = false; }   /* al salir de «Mis cuentos» queda guardado dónde ibas */
   tab = t; L = null; D = null; F = null; P = null; W = null; A = null;
   if (SHEET.open) closeSheet();
   document.body.classList.remove('focus');
@@ -214,7 +215,7 @@ function renderHome() {
   </section>
   ${heroResume ? '' : resumeCard()}
   <section class="card tools"><h2>🌐 Traductor</h2>
-    <div class="grid4">${[['data-act="translate" data-mode="text"', '✏️', 'Texto'], ['data-act="translate" data-mode="voice"', '🗣️', 'Voz'], ['data-act="translate" data-mode="photo"', '📷', 'Foto'], ['data-act="tab" data-tab="reader"', '📰', 'Leer']]
+    <div class="grid4">${[['data-act="translate" data-mode="text"', '✏️', 'Texto'], ['data-act="translate" data-mode="voice"', '🗣️', 'Voz'], ['data-act="translate" data-mode="photo"', '📷', 'Foto'], ['data-act="tab" data-tab="reader"', '📚', 'Cuentos']]
       .map(([a, i, l]) => `<button class="tool-btn" ${a}><span>${i}</span><b>${l}</b></button>`).join('')}</div></section>
   <section class="card daily"><div id="wod"></div>${verbOfDayHTML()}</section>
   <section class="card sec-box"><h2>Tus secciones</h2>

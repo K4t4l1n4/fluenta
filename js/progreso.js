@@ -105,7 +105,8 @@ function buildSummary() {
     })(),
     tarjetas: { total: Object.keys(S.cards).length, por_caja: [1, 2, 3, 4, 5].map(b => Object.values(S.cards).filter(c => c.box === b).length) },
     extras: { lecturas_hechas: Object.keys(X().read).length, historias_escuchadas: Object.keys(X().listen).length, pares_de_sonidos: X().pairs, juegos: X().games,
-      prueba_de_nivel: X().placed || 'no hecha', diplomas: X().diplomas, traducciones_guardadas: (S.tr || []).length },
+      prueba_de_nivel: X().placed || 'no hecha', diplomas: X().diplomas, traducciones_guardadas: (S.tr || []).length,
+      cuentos: { guardados: (S.texts || []).length, leidos: (S.texts || []).filter(x => x.read).length, palabras_anotadas: (S.texts || []).reduce((a, x) => a + (x.words || []).length, 0) } },
     version_app: APP_VERSION,
     errores_de_la_app: (S.errors || []).slice(-10).map(e => ({ fecha: new Date(e.t).toLocaleString('es-CL'), version: e.v, donde: e.where, error: e.msg, detalle: e.at }))
   };

@@ -50,7 +50,7 @@ const ctx = {
   speechSynthesis: { speak: u => spoken.push(u), cancel() {}, getVoices: () => [], speaking: false, pending: false },
   SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
   setTimeout: (fn, ms) => { timers.push(fn); return timers.length; }, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
-  requestAnimationFrame: fn => fn(), scrollTo() {}, confirm: () => true, alert() {}, innerHeight: 812,
+  requestAnimationFrame: fn => fn(), scrollTo() {}, confirm: () => true, alert() {}, prompt: () => ctx.__t.promptAnswer, innerHeight: 812,
   addEventListener: (type, fn) => { (listeners['win:' + type] = listeners['win:' + type] || []).push(fn); },
   fetch: async url => {
     const f = String(url);

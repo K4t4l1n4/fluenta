@@ -27,6 +27,10 @@
     /* tarjetas: nuevas, falladas y dominadas */
     allWords().slice(10, 16).forEach(([en, es], i) => { S.cards[en] = { en, es, box: i < 2 ? 1 : i < 4 ? 3 : 5, due: i < 2 ? Date.now() - 1000 : i === 2 ? Date.now() + 864e5 : 0 }; });
     S.cards['my word'] = { en: 'my word', es: 'mi palabra', box: 1, due: 0, custom: true };
+    /* cuentos: uno guardado antes de la 3.9 (sin título ni palabras) y uno a medio leer */
+    S.texts = [{ t: Date.now() - 9000, text: 'An old text saved before. It has two sentences.', tr: {} },
+      { t: Date.now() - 500, title: 'The red door', text: 'Anna found a red door in the wall. She opened it slowly.\nBehind it there was a garden.', tr: { 0: 'Anna encontró una puerta roja en la pared.' }, words: ['door', 'slowly'], wm: { door: ['door', 'puerta'] }, pos: 1, read: 0, last: Date.now() - 100 }];
+    rdAdd = false; rdDraft = ''; rdTitle = '';
     /* pronunciación */
     S.pw = { three: { ok: 0, fail: 4, sum: 120, n: 4 }, think: { ok: 1, fail: 3, sum: 200, n: 4 }, the: { ok: 1, fail: 2, sum: 150, n: 3 } };
     S.pron[allPhrases()[0]] = 64; S.bestPron = 64;
@@ -433,17 +437,83 @@
     eq(cleanOcr('MENU  \n\n\n\nSoup ~~ of the day\n'), 'MENU\n\nSoup   of the day');
     TR.text = 'Soup of the day'; render(); ok(view().includes('id="trIn"') && view().includes('Otra foto'), 'el texto leído debe poder corregirse'); look('traductor foto con texto');
   });
-  test('Lector: pegar un texto, leerlo por frases y traducir', async () => {
-    S = fresh(); go('home'); ACTIONS.tab(el({ tab: 'reader' })); look('lector vacío');
+  test('Mis cuentos: guardar con título, modo cuento y frase por frase', async () => {
+    S = fresh(); RDR = null; rdAdd = false; rdDraft = ''; rdTitle = ''; go('home'); ACTIONS.tab(el({ tab: 'reader' }));
+    ok(view().includes('id="rdIn"') && view().includes('id="rdTitle"'), 'sin cuentos debe mostrar el cuadro para pegar'); look('cuentos vacío');
     rdDraft = 'hi'; ACTIONS.rdopen(); ok(!RDR, 'aceptó un texto demasiado corto');
     const txt = 'My sister lives in London. She works in a hospital!\nDo you want to visit her?';
     eq(readerSentences(txt).length, 3);
-    rdDraft = txt; ACTIONS.rdopen(); ok(RDR && S.texts.length === 1, 'no guardó el texto'); eq((view().match(/class="rd-s"/g) || []).length, 3); look('lector');
+    rdDraft = txt; rdTitle = '  My sister  '; ACTIONS.rdopen();
+    ok(RDR && S.texts.length === 1, 'no guardó el cuento'); eq(S.texts[0].title, 'My sister'); eq([rdDraft, rdTitle], ['', ''], 'no limpió el cuadro');
+    eq((view().match(/class="st-s"/g) || []).length, 3, 'modo cuento: una parte por frase'); eq((view().match(/<p>/g) || []).length, 2, 'modo cuento: un párrafo por cada párrafo pegado');
+    ok(!view().includes('data-act="rdtr"'), 'el modo cuento no lleva botones entre frases'); look('cuento');
+    ACTIONS.rdmode(el({ v: 'lines' })); eq(S.extra.rdMode, 'lines'); eq((view().match(/class="rd-s"/g) || []).length, 3); look('cuento frase por frase');
     await withFetch(mm('Mi hermana vive en Londres.'), async () => { await readerTranslate([0]); });
     eq(readerText().tr[0], 'Mi hermana vive en Londres.'); ok(view().includes('Mi hermana vive en Londres.'), 'no muestra la traducción');
-    ACTIONS.rdclose(); ok(!RDR && view().includes('Tus textos')); look('lector con textos');
-    ACTIONS.rdpick(el({ t: String(S.texts[0].t) })); ok(RDR); ACTIONS.rdclose(); ACTIONS.rddel(el({ t: String(S.texts[0].t) })); eq(S.texts.length, 0);
-    ACTIONS.back(); eq(tab, 'home');
+    ACTIONS.rdmode(el({ v: 'story' })); eq(rdMode(), 'story');
+    __t.promptAnswer = ' Mi hermana '; ACTIONS.rdrename(); eq(rdTitleOf(readerText()), 'Mi hermana');
+    __t.promptAnswer = null; ACTIONS.rdrename(); eq(rdTitleOf(readerText()), 'Mi hermana', 'cancelar no debe borrar el título');
+    ACTIONS.rdclose(); ok(!RDR && view().includes('Agregar un cuento') && view().includes('Mi hermana'), 'la biblioteca no muestra el cuento'); look('biblioteca');
+    ACTIONS.rdnew(); ok(view().includes('id="rdIn"') && view().includes('Nuevo cuento')); look('nuevo cuento'); ACTIONS.rdcancel(); ok(view().includes('Agregar un cuento'));
+    ACTIONS.rdpick(el({ t: String(S.texts[0].t) })); ok(RDR);
+    ACTIONS.tab(el({ tab: 'lessons' })); ok(!RDR, 'al salir de Mis cuentos se debe cerrar el cuento');
+    ACTIONS.tab(el({ tab: 'reader' })); ok(view().includes('Agregar un cuento'), 'al volver debe mostrar la biblioteca');
+    ACTIONS.rdpick(el({ t: String(S.texts[0].t) })); ACTIONS.rddel(el({ t: String(S.texts[0].t) })); eq(S.texts.length, 0); ok(!RDR);
+    ACTIONS.back(); eq(tab, 'lessons', 'la ✕ debe volver a donde estabas');
+    TR = newTR(); TR.res = { src: 'This is a text from the translator. It goes to my stories.', from: 'en', dst: 'x' }; ACTIONS.trread(); ok(RDR && S.texts.length === 1, 'el traductor no guardó el texto en Mis cuentos');
+  });
+  test('Mis cuentos: textos antiguos, límites con aviso y nada se borra solo', () => {
+    S = fresh(); RDR = null; rdAdd = false; const toastText = () => ELS['#toast'].textContent;
+    S.texts = [{ t: 5, text: 'An old text from before. It has two sentences.', tr: { 0: 'Un texto antiguo de antes.' } }];
+    go('reader'); ok(view().includes('An old text from before'), 'no muestra el texto antiguo'); look('biblioteca con texto antiguo');
+    ACTIONS.rdpick(el({ t: '5' })); eq(RDR, 5); look('cuento antiguo'); ACTIONS.rdmode(el({ v: 'lines' })); ok(view().includes('Un texto antiguo de antes.')); look('cuento antiguo por frases'); ACTIONS.rdmode(el({ v: 'story' })); ACTIONS.rdclose();
+    ok(!openReader('word '.repeat(3200)), 'aceptó un cuento demasiado largo'); eq(S.texts.length, 1); ok(/muy largo/i.test(toastText()), 'no avisó que es muy largo');
+    rdDraft = 'word '.repeat(3200); ok(/muy largo/.test(rdCountText()), 'el contador no avisa'); rdDraft = '';
+    for (let i = 0; i < ST_MAX - 1; i++) ok(openReader(`Story number ${i} is here. It is short.`), 'no guardó el cuento ' + i);
+    eq(S.texts.length, ST_MAX);
+    ok(!openReader('One more story for the library. It does not fit.'), 'aceptó más cuentos que el máximo'); ok(/llena/.test(toastText()), 'no avisó que está llena');
+    eq(S.texts.length, ST_MAX, 'la biblioteca llena no debe borrar nada'); ok(S.texts.some(x => x.t === 5), 'se borró el cuento más antiguo');
+    eq(new Set(S.texts.map(x => x.t)).size, ST_MAX, 'dos cuentos quedaron con el mismo número');
+    RDR = null; go('reader'); ACTIONS.rdnew(); ok(!rdAdd, 'con la biblioteca llena no debe abrir el cuadro'); look('biblioteca llena');
+    ok(openReader('Story number 3 is here. It is short.'), 'pegar un cuento que ya está debe abrirlo'); eq(S.texts.length, ST_MAX, 'duplicó un cuento');
+    S.texts = S.texts.slice(0, 2); RDR = null;
+    const setItem = localStorage.setItem; localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+    try { ok(!openReader('There is no room for this story. Sorry about that.'), 'guardó sin espacio'); eq(S.texts.length, 2, 'dejó un cuento que no se pudo guardar'); ok(/espacio/.test(toastText())); }
+    finally { localStorage.setItem = setItem; }
+    eq(rdClean('The cat sat on\nthe mat.\n\n\nIt was   happy.  '), 'The cat sat on the mat.\nIt was happy.', 'no ordenó el texto pegado');
+  });
+  test('Mis cuentos: las palabras que tocas quedan anotadas y pasan a tarjetas', async () => {
+    S = fresh(); RDR = null; await loadDict();
+    openReader('The dog was running in the garden. Then the children walked home.', 'The dog');
+    for (const w of ['running', 'Garden', 'garden', 'children']) await ACTIONS.rdword(el({ w }));
+    const x = readerText();
+    eq(x.words, ['running', 'garden', 'children'], 'no anotó las palabras (sin repetir)');
+    ok(x.wm.garden && x.wm.garden[1], 'no guardó el significado'); ok(SHEET.open && SHEET.word === 'children', 'no abrió el significado'); look('hoja de una palabra del cuento'); closeSheet();
+    render(); ok(view().includes('class="tw seen" data-act="rdword" data-w="running"'), 'la palabra tocada no queda marcada'); ok(view().includes('Tus palabras de este cuento (3)')); look('cuento con palabras');
+    await ACTIONS.rdcard(el({ w: 'garden' })); ok(S.cards[x.wm.garden[0]], 'no creó la tarjeta');
+    await ACTIONS.rdcards(); const n = Object.keys(S.cards).length; ok(n >= 3, 'no pasó todas a tarjetas'); await ACTIONS.rdcards(); eq(Object.keys(S.cards).length, n, 'duplicó tarjetas');
+    render(); ok(!view().includes('data-act="rdcard"'), 'ofrece agregar tarjetas que ya están'); look('cuento con tarjetas');
+    ACTIONS.rdunword(el({ w: 'running' })); eq(readerText().words, ['garden', 'children']); ok(!readerText().wm.running);
+    await ACTIONS.rdword(el({ w: 'zzzqq' })); closeSheet(); ok(readerText().words.includes('zzzqq')); eq(await rdToCard(readerText(), 'zzzqq'), 'miss', 'inventó un significado');
+    render(); ok(view().includes('Toca para ver qué significa')); look('cuento con palabra sin significado');
+  });
+  test('Mis cuentos: dónde quedaste, marcar como leído y el acceso desde Lecciones', () => {
+    S = fresh(); RDR = null; const xp0 = S.xp;
+    openReader('One. Two. Three. Four. Five. Six. Seven. Eight. Nine. Ten.', 'Numbers'); const x = readerText();
+    eq(rdPct(x), 0);
+    const qsa = document.querySelectorAll;   /* 4 frases en pantalla: las dos primeras ya quedaron arriba, fuera de la vista */
+    document.querySelectorAll = () => [0, 1, 2, 3].map(i => ({ dataset: { s: String(i + 3) }, getBoundingClientRect: () => ({ bottom: i * 100 - 150 }) }));
+    try { rdScrolled(); eq(x.pos, 6, 'no anotó la primera frase que se ve'); ok(rdDirty); rdFlush(); ok(!rdDirty); eq(JSON.parse(__t.store.get('fluenta-v1')).texts[0].pos, 6, 'no guardó dónde quedó'); }
+    finally { document.querySelectorAll = qsa; }
+    x.pos = 5; eq(rdPct(x), 50);
+    ACTIONS.tab(el({ tab: 'lessons', cat: 'read' })); ok(view().includes('Mis cuentos') && view().includes('Seguir leyendo') && view().includes('vas en 50 %'), 'Lecciones › Leer no muestra el cuento a medias'); look('Lecciones › Leer con cuentos');
+    ACTIONS.rdpick(el({ t: String(x.t) })); eq(tab, 'reader'); eq(RDR, x.t);
+    ACTIONS.rdread(); ok(x.read && S.xp > xp0, 'no dio puntos al terminar'); const xp1 = S.xp; eq(S.extra.stories, 1); eq(rdPct(x), 100); ok(view().includes('Leer de nuevo')); look('cuento leído');
+    ACTIONS.rdagain(); ok(!x.read && x.pos === 0); ACTIONS.rdread(); eq(S.xp, xp1, 'dio puntos dos veces por el mismo cuento'); eq(S.extra.stories, 1);
+    ACTIONS.rdclose(); ok(view().includes('Leído') && view().includes('1 leído'), 'la biblioteca no lo marca como leído'); look('biblioteca con leído');
+    ACTIONS.back(); eq(tab, 'lessons', 'la ✕ de Mis cuentos debe volver a Lecciones'); ok(!view().includes('Seguir leyendo'), 'un cuento leído no va en «Seguir leyendo»');
+    openCat.lessons = null; go('home'); ok(view().includes('Cuentos'), 'Inicio no muestra el acceso a Cuentos');
+    eq(buildSummary().extras.cuentos, { guardados: 1, leidos: 1, palabras_anotadas: 0 });
   });
   test('El diccionario ofrece traducir una frase completa', async () => {
     S = fresh(); await loadDict(); go('home'); ACTIONS.dict(); dictSearchQ = 'how are you today'; renderSearch();

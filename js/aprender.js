@@ -158,9 +158,10 @@ A_VIEWS.place = () => {
 const storyRow = (r, act, st) => `<button class="lesson ${st ? 'done' : ''}" data-act="${act}" data-id="${r.id}"><span class="lesson-icon">${r.icon}</span><span class="lesson-info grow"><b>${esc(r.title)}</b><span class="muted small">${esc(r.es)}</span>${st ? starsHTML(st) : ''}</span>${ic('play', 'sm accent')}</button>`;
 const byLevelHTML = (list, act, done) => [...new Set(list.map(r => r.level))].map(lv => subLabel(`Nivel ${lv}`) + `<div class="path">${list.filter(r => r.level === lv).map(r => storyRow(r, act, done[r.id])).join('')}</div>`).join('');
 function readCat() {
-  const d = X().read, n = READINGS.filter(r => d[r.id]).length;
-  return catHTML('lessons', 'read', '📖', 'Leer', `Lecturas cortas con preguntas<br>${n}/${READINGS.length} lecturas`, pct(n, READINGS.length), () =>
-    `<div class="path">${goRow('data-act="tab" data-tab="reader"', '📰', 'Leer un texto tuyo', 'Pega un artículo o un correo y léelo tocando las palabras')}</div>` + byLevelHTML(READINGS, 'reading', d));
+  const d = X().read, n = READINGS.filter(r => d[r.id]).length, mine = S.texts || [], read = mine.filter(x => x.read).length;
+  const cur = rdList().find(x => !x.read && (x.pos || 0) > 0);   /* un cuento a medio leer */
+  return catHTML('lessons', 'read', '📖', 'Leer', `Lecturas con preguntas y tus cuentos<br>${n}/${READINGS.length} lecturas${mine.length ? ` · ${mine.length} ${mine.length === 1 ? 'cuento' : 'cuentos'}` : ''}`, pct(n, READINGS.length), () =>
+    subLabel('Tus cuentos') + `<div class="path">${goRow('data-act="tab" data-tab="reader"', '📚', 'Mis cuentos', mine.length ? `${mine.length} ${mine.length === 1 ? 'guardado' : 'guardados'} · ${read} ${read === 1 ? 'leído' : 'leídos'}` : 'Pega tus cuentos en inglés y léelos tocando las palabras')}${cur ? goRow(`data-act="rdpick" data-t="${cur.t}"`, '📍', 'Seguir leyendo', `${esc(rdTitleOf(cur))} · vas en ${rdPct(cur)} %`) : ''}</div>` + byLevelHTML(READINGS, 'reading', d));
 }
 function listenCat() {
   const d = X().listen, n = LISTENINGS.filter(r => d[r.id]).length;

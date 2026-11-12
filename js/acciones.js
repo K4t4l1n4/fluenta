@@ -168,6 +168,7 @@ const ACTIONS = {
     S.cards[en] = { en, es, box: 1, due: 0 }; save(); toast('🃏 Agregada a tus tarjetas');
     el.outerHTML = '<p class="center"><span class="add-btn added">✓ Agregada a tus tarjetas</span></p>';
     if (tab === 'mycards' && !F && !SHEET.open) render();
+    if (tab === 'reader') rdDrawWords(readerText());   /* la lista de palabras del cuento */
   },
   delword: el => { if (!confirm(`¿Eliminar "${el.dataset.en}"?`)) return; delete S.cards[el.dataset.en]; save(); render(); },
   delpack: el => { if (!confirm('¿Eliminar este refuerzo?')) return; S.packs = S.packs.filter(p => p.id !== el.dataset.id); save(); render(); },
@@ -192,7 +193,7 @@ const ACTIONS = {
   reset: () => { if (!confirm('¿Seguro? Se borrará todo tu progreso, XP y tarjetas.')) return; S = fresh(); save(); applyTheme(); go('home'); toast('Progreso reiniciado'); }
 };
 /* Los botones del traductor, de las lecturas y actividades nuevas, y de los juegos */
-Object.assign(ACTIONS, TR_ACTIONS, AP_ACTIONS, GAME_ACTIONS);
+Object.assign(ACTIONS, TR_ACTIONS, ST_ACTIONS, AP_ACTIONS, GAME_ACTIONS);
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -227,7 +228,8 @@ document.addEventListener('input', e => {
   else if (t.id === 'vq') { verbSearch = t.value; const l = $('#verbList'); if (l) l.innerHTML = verbListHTML(); }
   else if (t.id === 'clIn') { CL.draft = t.value; CL.data = parseClaude(t.value); const p = $('#clPrev'); if (p) p.innerHTML = claudePreviewHTML(); }
   else if (t.id === 'trIn') { TR.text = t.value; if (!t.value.trim()) TR.manual = false; }
-  else if (t.id === 'rdIn') rdDraft = t.value;
+  else if (t.id === 'rdIn') { rdDraft = t.value; rdCountDraw(); }
+  else if (t.id === 'rdTitle') rdTitle = t.value;
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
   else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
   else if (t.id === 'setAccent') previewAccent(t.value);   /* se ve al instante mientras eliges */

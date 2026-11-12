@@ -103,7 +103,7 @@ function trResultHTML() {
     <div class="row gap-s tr-say">${sayBtn(en)}<button class="round-btn" data-act="say" data-t="${esc(en)}" data-slow="1" aria-label="Lento">🐢</button><span class="muted small grow">Escucha el inglés. Toca una palabra para ver qué significa.</span></div>
     ${r.offline ? `<p class="muted small">📴 ${r.quota ? 'Se acabaron las traducciones gratis de hoy' : 'Sin internet'}: esta es una traducción palabra por palabra, aproximada. Lo que va entre [ ] no lo encontré.</p>` : ''}
     <div class="row gap">${!short ? '' : S.cards[en] ? '<span class="add-btn added grow center">✓ En tus tarjetas</span>' : '<button class="btn ghost grow" data-act="trsave">🃏 Guardar</button>'}<button class="btn ghost grow" data-act="trcopy">📋 Copiar</button></div>
-    ${r.from === 'en' && !short ? '<button class="btn ghost wide" data-act="trread">📰 Abrir en el lector</button>' : ''}</section>`;
+    ${r.from === 'en' && !short ? '<button class="btn ghost wide" data-act="trread">📚 Guardar en mis cuentos</button>' : ''}</section>`;
 }
 function renderTranslate() {
   const to = TR.from === 'en' ? 'es' : 'en', hist = S.tr || [];
@@ -232,50 +232,7 @@ async function readPhoto(file) {
   rerenderTR();
 }
 
-/* ===== Lector: pegas un texto en inglés y lo lees frase por frase, tocando las palabras ===== */
-let RDR = null, rdDraft = '';
-const readerSentences = text => text.split(/\n+/).flatMap(p => (p.match(/[^.!?]+[.!?]+["”’')\]]*|[^.!?]+$/g) || []).map(s => s.trim()).filter(Boolean));
-const readerText = () => (S.texts || []).find(x => x.t === RDR) || null;
-function openReader(text) {
-  const clean = String(text || '').replace(/\r/g, '').trim().slice(0, 6000);
-  if (tokens(clean).length < 3) { toast('Pega un texto en inglés de al menos una frase'); return; }
-  const old = (S.texts || []).find(x => x.text === clean), item = old || { t: Date.now(), text: clean, tr: {} };
-  S.texts = [item, ...(S.texts || []).filter(x => x !== item)].slice(0, 8);
-  save(); RDR = item.t; rdDraft = '';
-  if (tab === 'reader') { render(); window.scrollTo(0, 0); } else go('reader');
-}
-function renderReader() {
-  const cur = readerText(), texts = S.texts || [];
-  if (!cur) return topBar('📰 Leer un texto', closeBtn()) + `
-    <p class="muted small">Pega cualquier texto en inglés: un artículo, un correo, la letra de una canción. Lo vas a leer frase por frase, tocando las palabras que no conozcas.</p>
-    <textarea id="rdIn" rows="7" placeholder="Pega aquí un texto en inglés…" autocomplete="off" autocapitalize="off" spellcheck="false">${esc(rdDraft)}</textarea>
-    <button class="btn primary wide" data-act="rdopen">📖 Leer</button>
-    ${texts.length ? `<section class="card" style="margin-top:14px"><h2>🕘 Tus textos</h2>${texts.map(x => `<div class="word-row"><button class="grow as-btn" data-act="rdpick" data-t="${x.t}"><span class="small">${esc(x.text.slice(0, 80))}${x.text.length > 80 ? '…' : ''}</span><span class="muted small block">${new Date(x.t).toLocaleDateString('es-CL')} · ${tokens(x.text).length} palabras</span></button><button class="icon-btn sm" data-act="rddel" data-t="${x.t}" aria-label="Eliminar">${ic('trash')}</button></div>`).join('')}</section>` : ''}`;
-  const ss = readerSentences(cur.text), left = ss.filter((s, i) => !cur.tr[i]).length;
-  return topBar('📰 Lector', closeBtn()) + `
-    <p class="muted small">Toca una palabra para ver qué significa y guardarla en tus tarjetas. Con «Traducir» ves la frase en español.</p>
-    <section class="card rd-text">${ss.map((s, i) => `<div class="rd-s"><div class="rd-en">${tapText(s)}</div>${cur.tr[i] ? `<div class="rd-es">${esc(cur.tr[i])}</div>` : ''}
-      <div class="rd-btns">${sayBtn(s, 'sm')}<button class="round-btn sm" data-act="say" data-t="${esc(s)}" data-slow="1" aria-label="Lento">🐢</button>${cur.tr[i] ? '' : `<button class="add-btn" data-act="rdtr" data-i="${i}">Traducir</button>`}</div></div>`).join('')}</section>
-    ${left ? `<button class="btn ghost wide" data-act="rdall">🌐 Traducir todo (${left} ${left === 1 ? 'frase' : 'frases'})</button>` : ''}
-    <button class="btn ghost wide" data-act="rdclose">📄 Leer otro texto</button>`;
-}
-async function readerTranslate(indexes) {
-  const cur = readerText(); if (!cur) return;
-  const ss = readerSentences(cur.text);
-  let rough = false;
-  for (const i of indexes.slice(0, 40)) {
-    if (cur.tr[i] || !ss[i]) continue;
-    const r = await translateText(ss[i], 'en');
-    if (!r.dst) { toast('⚠️ No pude traducir. Revisa tu conexión a internet.'); break; }
-    if (r.offline) { rough = true; cur.tr[i] = '≈ ' + r.dst; break; }   /* sin internet: una frase aproximada y se detiene */
-    cur.tr[i] = r.dst;
-  }
-  save();
-  if (rough) toast('📴 Sin internet o sin cupo: traducción aproximada');
-  if (tab === 'reader' && readerText() === cur) render();
-}
-
-/* ===== Botones del traductor y del lector ===== */
+/* ===== Botones del traductor (el lector ahora es «Mis cuentos», en js/cuentos.js) ===== */
 const TR_ACTIONS = {
   translate: el => openTranslate(el.dataset.mode || 'text', el.dataset.t != null ? el.dataset.t : null),
   trmode: el => { TR.mode = el.dataset.v; if (!TR.manual) TR.from = TR.mode === 'photo' ? 'en' : 'es'; TR.micErr = ''; TR.ocrErr = ''; render(); },
@@ -293,10 +250,4 @@ const TR_ACTIONS = {
   trread: () => { if (TR.res) openReader(TR.res.src); },
   truse: el => { const h = (S.tr || [])[+el.dataset.i]; if (!h) return; TR.text = h.src; TR.from = h.from; TR.manual = true; TR.mode = 'text'; TR.res = { src: h.src, from: h.from, dst: h.dst, offline: false }; render(); window.scrollTo(0, 0); },
   trclear: () => { if (!confirm('¿Borrar lo que has traducido?')) return; S.tr = []; save(); render(); },
-  rdopen: () => openReader(rdDraft),
-  rdpick: el => { RDR = +el.dataset.t; render(); window.scrollTo(0, 0); },
-  rddel: el => { if (!confirm('¿Eliminar este texto?')) return; S.texts = (S.texts || []).filter(x => String(x.t) !== el.dataset.t); save(); render(); },
-  rdclose: () => { RDR = null; render(); window.scrollTo(0, 0); },
-  rdtr: el => readerTranslate([+el.dataset.i]),
-  rdall: () => { const cur = readerText(); if (!cur) return; toast('🌐 Traduciendo…'); return readerTranslate(readerSentences(cur.text).map((s, i) => i)); }
 };
