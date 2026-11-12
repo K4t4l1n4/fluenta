@@ -321,7 +321,7 @@
       ok(!view().includes(esc(r.lines[1][0])), `${r.id}: el texto se ve antes de escuchar`);
       spoken.length = 0; const before = __t.pending();
       ACTIONS.aplay(el({})); eq(spoken.map(u => u.text), r.lines.map(l => l[0]), `${r.id}: no pidió todas las frases`); eq(__t.pending(), before, 'la voz quedó esperando');
-      spoken.length = 0; ACTIONS.aplay(el({ slow: '1' })); ok(spoken.length > r.lines.length && spoken.every(u => u.rate === 0.5), `${r.id}: la versión lenta no va por partes`);
+      spoken.length = 0; ACTIONS.aplay(el({ slow: '1' })); ok(spoken.length > r.lines.length && spoken.every(u => u.rate === turtleRate() && u.rate < S.rate), `${r.id}: la versión lenta no va por partes y más lenta`);
       ACTIONS.aquiz(); answerQuiz(false);
       ok(!A && /Historia completada/.test(view()) && view().includes('La historia'), `${r.id} no terminó con su texto`); look('fin de historia');
       eq(X().listen[r.id], 3);
@@ -553,7 +553,7 @@
     speak(txt, true);
     ok(parts.length > 1, 'no se dividió en partes');
     eq(spoken.map(u => u.text), parts, 'no se pidieron todas las partes al tiro');
-    ok(spoken.every(u => u.rate === 0.5), 'las partes no van a la velocidad más lenta');
+    ok(spoken.every(u => u.rate === turtleRate() && u.rate < 0.5), 'las partes no van a la velocidad de la tortuga');
     eq(__t.pending(), before, 'la voz quedó esperando un temporizador (el iPhone no la dejaría sonar)');
     eq(parts.join(' '), txt, 'las partes no forman la frase completa');
     parts.slice(0, -1).forEach(p => ok(!SLOW_GLUE.has(p.split(' ').pop().toLowerCase().replace(/[^a-z']/g, '')), `una parte termina en "${p.split(' ').pop()}"`));
@@ -562,6 +562,60 @@
     S = fresh(); S.rate = 0.9; spoken.length = 0;
     speak('Good morning, how are you?'); eq(spoken.length, 1); eq(spoken[0].rate, 0.9);
     spoken.length = 0; speak('(formal) Nice to meet you.'); eq(spoken[0].text, 'Nice to meet you.', 'no quita la nota entre paréntesis');
+  });
+  test('🐢 La tortuga siempre va bien más lenta que el parlante, también en una palabra sola', () => {
+    S = fresh(); eq(S.slowRate, 0, 'la tortuga no parte en automático');
+    ok(turtleRate() < 0.5, 'la tortuga quedó en 0.5: en el iPhone eso suena casi igual que la voz normal');
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2].forEach(rate => [0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach(slow => {
+      S.rate = rate; S.slowRate = slow; spoken.length = 0;
+      speak('water'); speak('water', true);
+      eq(spoken.map(u => u.text), ['water', 'water'], 'una palabra sola se dice de una vez');
+      eq(spoken[0].rate, rate, 'el parlante normal no va a la velocidad de Ajustes');
+      ok(spoken[1].rate >= 0.1 && spoken[1].rate <= rate * 0.6 + 1e-9, `con la voz en ${rate} y la tortuga en ${slow}, la tortuga va a ${spoken[1].rate}: demasiado parecida a la normal`);
+      if (slow) ok(spoken[1].rate <= slow, `la tortuga va más rápido (${spoken[1].rate}) que lo elegido (${slow})`);
+    }));
+    /* un progreso guardado antes de la 3.9.2 no trae la velocidad de la tortuga: no se pierde nada y queda en automático */
+    const before = __t.store.get(KEY), old = fresh(); delete old.slowRate; old.rate = 0.7; old.xp = 77;
+    __t.store.set(KEY, JSON.stringify(old));
+    const got = load(); eq([got.slowRate, got.rate, got.xp], [0, 0.7, 77], 'el progreso antiguo no carga bien');
+    if (before === undefined) __t.store.delete(KEY); else __t.store.set(KEY, before);
+  });
+  test('Ajustes: la velocidad de la tortuga se elige, se guarda y se compara con la normal', () => {
+    S = fresh(); VT.n = VT.s = 0; go('profile');
+    ok(view().includes('id="setSlow"') && view().includes('id="setRate"'), 'faltan los controles de velocidad');
+    ok(view().includes('data-act="voicetest">') && view().includes('data-act="voicetest" data-slow="1"'), 'faltan los botones para comparar');
+    ok(view().includes(esc(VT.hint)), 'falta la explicación del control');
+    const input = __t.listeners.input[0], now = Date.now;
+    ELS['#slowVal'] = el(); ELS['#rateVal'] = el(); ELS['#voiceCmp'] = el();
+    let clock = 5000; Date.now = () => clock;
+    try {
+      input({ target: { id: 'setSlow', value: '0.1' } });
+      eq(S.slowRate, 0.1); eq(ELS['#slowVal'].textContent, '0.1x'); eq(JSON.parse(__t.store.get(KEY)).slowRate, 0.1, 'la velocidad de la tortuga no se guardó');
+      spoken.length = 0; speak('water', true); eq(spoken[0].rate, 0.1, 'la tortuga no usa la velocidad elegida');
+      go('profile'); ok(view().includes('id="setSlow" type="range" min="0.1" max="0.5" step="0.1" value="0.1"'), 'Ajustes no muestra la velocidad elegida');
+      /* comparar: cada botón dice la misma frase una sola vez y anota cuánto duró */
+      spoken.length = 0; const waiting = __t.pending();
+      ACTIONS.voicetest(el({})); eq(spoken.length, 1); eq(spoken[0].rate, S.rate); eq(__t.pending(), waiting, 'la voz quedó esperando un temporizador');
+      spoken[0].onstart(); clock += 1500; spoken[0].onend();
+      ok(/^Normal: 1,5 s\. Ahora toca/.test(ELS['#voiceCmp'].textContent), 'no anotó cuánto duró la voz normal: ' + ELS['#voiceCmp'].textContent);
+      ACTIONS.voicetest(el({ slow: '1' })); eq(spoken[1].text, spoken[0].text, 'no compara con la misma frase'); eq(spoken[1].rate, 0.1);
+      spoken[1].onstart(); clock += 3000; spoken[1].onend();
+      ok(/Normal: 1,5 s · Tortuga: 3,0 s\. La tortuga va 2,0 veces más lenta/.test(ELS['#voiceCmp'].textContent), 'no comparó bien: ' + ELS['#voiceCmp'].textContent);
+      go('profile'); ok(view().includes('La tortuga va 2,0 veces más lenta'), 'la comparación se pierde al volver a dibujar');
+      /* un teléfono que no cambia la velocidad: la app lo dice */
+      ACTIONS.voicetest(el({ slow: '1' })); spoken[2].onstart(); clock += 1600; spoken[2].onend();
+      ok(/casi no cambió la velocidad\. La tortuga ya está al mínimo: cuéntaselo a Claude/.test(ELS['#voiceCmp'].textContent), 'no avisa cuando la tortuga suena igual: ' + ELS['#voiceCmp'].textContent);
+      S.slowRate = 0.4; ok(/casi no cambió la velocidad\. Mueve la tortuga más a la izquierda/.test(voiceTestText()), 'si aún se puede bajar, debe decir que la muevas');
+      VT.s = 2; ok(/va 1,3 veces más lenta\. Si la quieres aún más lenta/.test(voiceTestText()), 'con poca diferencia no sugiere bajarla más');
+      S.slowRate = 0.1; VT.s = 1.6;
+      /* una prueba cortada por otro toque no cuenta */
+      ACTIONS.voicetest(el({})); const cut = spoken[3]; cut.onstart(); clock += 200; ACTIONS.voicetest(el({ slow: '1' }));
+      ok(cut.onend === null, 'la prueba cortada sigue contando'); eq(VT.n, 1.5, 'la prueba cortada cambió la medida');
+      /* al mover un control, la medida vieja deja de servir */
+      input({ target: { id: 'setSlow', value: '0.3' } }); eq(VT.s, 0); ok(/^Normal: 1,5 s\. Ahora toca/.test(ELS['#voiceCmp'].textContent), 'no pidió medir de nuevo la tortuga');
+      input({ target: { id: 'setRate', value: '0.5' } }); eq([VT.n, VT.s], [0, 0]); eq(ELS['#voiceCmp'].textContent, VT.hint);
+      eq(turtleRate(), 0.3, 'con la voz normal al mínimo la tortuga debe seguir más lenta');
+    } finally { Date.now = now; delete ELS['#slowVal']; delete ELS['#rateVal']; delete ELS['#voiceCmp']; VT.n = VT.s = 0; vtDrop(); }
   });
 
   /* ============ 9. Correcciones y comparaciones ============ */

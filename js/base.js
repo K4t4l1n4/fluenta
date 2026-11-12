@@ -31,7 +31,7 @@ const tokens = s => s.trim().split(/\s+/);
 const clean = t => t.toLowerCase().replace(/[^a-z0-9']/g, '');
 const stripPunct = t => t.replace(/[.,!?]+$/g, '');
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-const APP_VERSION = '3.9.1';
+const APP_VERSION = '3.9.2';
 /* Convierte un texto en inglés en palabras que se pueden tocar para ver su significado */
 const tapText = s => String(s ?? '').split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
   .map((p, i) => i % 2 ? `<span class="tw" data-act="word" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
@@ -66,7 +66,7 @@ const KEY = 'fluenta-v1';
 const DEFAULT = {
   version: 2, xp: 0, weekXp: 0, weekKey: '', streak: 0, lastDay: '', dailyXp: 0, dailyDay: '', goal: 30,
   done: {}, dialogs: {}, ends: {}, dlg: {}, bestPron: 0, pron: {}, cards: {}, reviews: 0, added: 0, ach: {},
-  rate: 0.9, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
+  rate: 0.9, slowRate: 0, name: '', theme: 'light', accent: '', sound: true, soundVol: 0.6,
   resume: null, cardDir: 'en', cardWrite: false, favTip: false, recordVoice: true, autoReplay: true,
   items: {}, types: {}, days: {}, pw: {}, log: [], packs: [], lastExport: 0, autoDone: 0, pronSessions: [],
   writing: { texts: [], errs: {} }, tense: {}, verbs: {}, errors: [],

@@ -14,6 +14,7 @@ const ACTIONS = {
   clevel: el => { courseLevel = el.dataset.v; render(); },
   seg: el => { const [k, v] = el.dataset.seg.split(':'); if (k === 'stats') statSeg = v; render(); },
   say: el => speak(el.dataset.t, !!el.dataset.slow),
+  voicetest: el => voiceTest(!!el.dataset.slow),
   lesson: el => startLesson(el.dataset.id),
   begin: () => { if (!L) return; L.intro = false; L.i = L.resumeAt || 0; renderLesson(); startExerciseAudio(); },
   restart: () => { if (!L) return; const id = L.les.id; S.resume = null; save(); startLesson(id, true); },
@@ -231,7 +232,8 @@ document.addEventListener('input', e => {
   else if (t.id === 'rdIn') { rdDraft = t.value; rdCountDraw(); }
   else if (t.id === 'rdTitle') rdTitle = t.value;
   else if (t.id === 'setName') { S.name = t.value.trim(); save(); }
-  else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; save(); }
+  else if (t.id === 'setRate') { S.rate = +t.value; $('#rateVal').textContent = S.rate.toFixed(1) + 'x'; VT.n = VT.s = 0; voiceTestDraw(); save(); }
+  else if (t.id === 'setSlow') { S.slowRate = +t.value; $('#slowVal').textContent = S.slowRate.toFixed(1) + 'x'; VT.s = 0; voiceTestDraw(); save(); }
   else if (t.id === 'setAccent') previewAccent(t.value);   /* se ve al instante mientras eliges */
   else if (t.id === 'setSoundVol') { S.soundVol = +t.value; save(); }
 });

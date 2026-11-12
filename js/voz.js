@@ -8,9 +8,19 @@ function loadVoice() {
     || vs.find(v => v.lang === 'en-US') || vs.find(v => v.lang.startsWith('en')) || null;
 }
 if ('speechSynthesis' in window) { loadVoice(); speechSynthesis.onvoiceschanged = loadVoice; }
-/* 🐢 Lento: en el iPhone, bajar solo la velocidad casi no se nota (y Safari no acepta menos de 0.5),
-   así que la frase se dice por partes cortas: entre una parte y otra queda una pausa. Las partes no
-   terminan en "a", "the", "to"…: dichas solas se pronuncian distinto. */
+/* 🐢 Lento. Son dos cosas juntas:
+   1) La velocidad. En el iPhone la escala es otra: Safari le entrega al teléfono la mitad del número, y ahí
+      bajar de 0.9 a 0.5 casi no se oye (por eso Kata sentía la tortuga igual al parlante, sobre todo en una
+      palabra sola). Desde la 3.9.2 la tortuga va mucho más abajo, Kata la elige en Perfil › Ajustes
+      (S.slowRate; 0 = la que trae la app) y siempre queda bien por debajo de la voz normal.
+   2) La frase se dice por partes cortas: entre una parte y otra queda una pausa. Las partes no
+      terminan en "a", "the", "to"…: dichas solas se pronuncian distinto. */
+const IOS_VOICE = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const turtlePick = () => S.slowRate || (IOS_VOICE ? 0.2 : 0.4);
+const turtleRate = () => Math.max(0.1, Math.min(turtlePick(), Math.floor(S.rate * 6) / 10));
+/* Ajustes › «Escucha la diferencia»: lo que duró la misma frase dicha normal (n) y lenta (s) */
+const VT = { text: 'Thank you very much', hint: 'Mientras más a la izquierda dejes la tortuga, más lenta habla.', n: 0, s: 0, u: null };
+function vtDrop() { if (VT.u) { VT.u.onstart = VT.u.onend = null; VT.u = null; } }   /* una prueba cortada no cuenta */
 const SLOW_GLUE = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'from', 'by', 'about', 'my', 'your', 'his', 'her', 'our', 'their', 'its', 'and', 'or', 'but', 'is', 'are', 'am', 'was', 'were', 'be', 'been', 'i', 'you', 'he', 'she', 'we', 'they', 'it', 'do', 'does', 'did', "don't", "doesn't", "didn't", 'will', "won't", 'can', "can't", 'have', 'has', 'had', 'not', 'very', 'this', 'that', 'some', 'any', 'going']);
 function slowChunks(text) {
   const tk = text.split(/\s+/).filter(Boolean), out = [];
@@ -22,22 +32,47 @@ function slowChunks(text) {
   });
   return out;
 }
-function stopSpeech() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+function stopSpeech() { vtDrop(); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
 /* Dice una o varias frases seguidas (una historia). Todas las partes se piden en el mismo momento en que
    se toca el botón (quedan en fila): si la voz se pide después, con una espera, el iPhone no la deja sonar. */
 function speakAll(list, slow) {
   if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
+  vtDrop(); speechSynthesis.cancel();
   list.filter(Boolean).forEach(text => (slow ? slowChunks(text) : [text]).forEach(p => {
     const u = new SpeechSynthesisUtterance(p);
     u.lang = 'en-US'; if (voice) u.voice = voice;
-    u.rate = slow ? 0.5 : S.rate;
+    u.rate = slow ? turtleRate() : S.rate;
     speechSynthesis.speak(u);
   }));
 }
 function speak(text, slow) {
   if (text) speakAll([text.replace(/^\(.*?\)\s*/, '')], slow);
 }
+/* Ajustes: dice la misma frase normal o lenta y anota cuánto duró cada una. Sirve para oír la diferencia
+   y para saber si el teléfono de verdad cambió la velocidad (si no la cambió, lo avisa). */
+function voiceTest(slow) {
+  if (!('speechSynthesis' in window)) return;
+  vtDrop(); speechSynthesis.cancel();
+  const u = VT.u = new SpeechSynthesisUtterance(VT.text), k = slow ? 's' : 'n';
+  let t0 = 0;
+  u.lang = 'en-US'; if (voice) u.voice = voice;
+  u.rate = slow ? turtleRate() : S.rate;
+  u.onstart = () => { t0 = Date.now(); };
+  u.onend = () => { if (t0) { VT[k] = (Date.now() - t0) / 1000; voiceTestDraw(); } };
+  speechSynthesis.speak(u);
+}
+const vtNum = n => n.toFixed(1).replace('.', ',');
+function voiceTestText() {
+  if (!VT.n && !VT.s) return VT.hint;
+  if (!VT.s) return `Normal: ${vtNum(VT.n)} s. Ahora toca «🐢 Lenta» para comparar.`;
+  if (!VT.n) return `Tortuga: ${vtNum(VT.s)} s. Ahora toca «🔊 Normal» para comparar.`;
+  /* La medida incluye el silencio de antes y después de la voz, así que la diferencia real es algo mayor */
+  const x = VT.s / VT.n, can = turtleRate() > 0.1;
+  return `Normal: ${vtNum(VT.n)} s · Tortuga: ${vtNum(VT.s)} s. ` + (x >= 1.2
+    ? `La tortuga va ${vtNum(x)} veces más lenta.${can && x < 1.6 ? ' Si la quieres aún más lenta, muévela a la izquierda.' : ''}`
+    : `⚠️ Tu teléfono casi no cambió la velocidad. ${can ? 'Mueve la tortuga más a la izquierda y prueba de nuevo.' : 'La tortuga ya está al mínimo: cuéntaselo a Claude.'}`);
+}
+function voiceTestDraw() { const e = $('#voiceCmp'); if (e) e.textContent = voiceTestText(); }
 
 /* ===== Sonidos: los "toca" un mini sintetizador (sin archivos, funcionan sin internet) ===== */
 let AC = null, MASTER = null, listening = false;

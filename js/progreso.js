@@ -177,12 +177,15 @@ function renderProfile() {
     <div class="field">Grabar mi voz en Pronunciación<div class="seg mini"><button class="${S.recordVoice !== false ? 'on' : ''}" data-act="recvoice" data-v="1">🎙️ Sí</button><button class="${S.recordVoice === false ? 'on' : ''}" data-act="recvoice" data-v="0">No</button></div>
       <small class="muted block" style="margin-top:6px">Para escucharte, comparar con la voz modelo y medir tu fluidez. La grabación no se guarda.</small></div>
     ${S.recordVoice !== false ? `<div class="field">Repetir mi voz al terminar<div class="seg mini"><button class="${S.autoReplay !== false ? 'on' : ''}" data-act="autoreplay" data-v="1">🔁 Sí</button><button class="${S.autoReplay === false ? 'on' : ''}" data-act="autoreplay" data-v="0">No</button></div></div>` : ''}
-    <label class="field">Velocidad de la voz: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
+    <label class="field">Velocidad de la voz 🔊: <b id="rateVal">${S.rate.toFixed(1)}x</b><input id="setRate" type="range" min="0.5" max="1.2" step="0.1" value="${S.rate}"></label>
+    <label class="field">Velocidad de la tortuga 🐢: <b id="slowVal">${turtlePick().toFixed(1)}x</b><input id="setSlow" type="range" min="0.1" max="0.5" step="0.1" value="${turtlePick()}"></label>
+    <div class="field">Escucha la diferencia
+      <div class="row gap" style="margin-top:6px"><button class="btn ghost grow" data-act="voicetest">🔊 Normal</button><button class="btn ghost grow" data-act="voicetest" data-slow="1">🐢 Lenta</button></div>
+      <small class="muted block" id="voiceCmp" style="margin-top:6px">${esc(voiceTestText())}</small></div>
     <label class="field">Meta diaria<select id="setGoal">${[10, 20, 30, 50, 80].map(g => `<option value="${g}" ${S.goal === g ? 'selected' : ''}>${g} XP al día</option>`).join('')}</select></label>
     <div class="field">⏰ Recordatorio diario
       <div class="row gap" style="margin-top:6px"><input id="setRemind" type="time" value="${esc(S.remind || '20:00')}" style="flex:1"><button class="btn ghost" data-act="remind">Agregar al calendario</button></div>
       <small class="muted block" style="margin-top:6px">Crea un evento que se repite todos los días en el calendario de tu iPhone, con aviso a esa hora.</small></div>
-    <button class="btn ghost wide" data-act="say" data-t="Hello! This is how I sound. Let's practice English together!">🔊 Probar voz</button>
     <button class="btn danger wide" data-act="reset">Reiniciar todo el progreso</button></section>
   ${(S.errors || []).length ? `<p class="muted small center">⚠️ La app anotó ${S.errors.length} ${S.errors.length === 1 ? 'error' : 'errores'}: van en tu archivo de progreso para que Claude los revise. <button class="link-inline" data-act="clearerr">Borrarlos</button></p>` : ''}
   <p class="muted small center">Fluenta ${APP_VERSION} · tu app de inglés, gratis para siempre 💜</p>
