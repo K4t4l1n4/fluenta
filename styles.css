@@ -636,7 +636,6 @@ a.btn{text-decoration:none}
 .st-text{padding:22px 20px}
 .st-text p{font-size:19px;line-height:1.75;margin:0 0 20px}
 .st-text p:last-child{margin:0}
-.tw.seen{background:var(--accent-soft);text-decoration-style:solid;text-decoration-color:var(--accent)}
 .st-s.here,.rd-s.here{animation:herefade 3.5s ease-out;border-radius:6px}
 @keyframes herefade{0%,55%{background:rgba(var(--accent-rgb),.22)}100%{background:transparent}}
 .st-done{color:var(--ok);font-weight:600;margin:16px 0 0}
@@ -645,4 +644,3 @@ a.btn{text-decoration:none}
 .st-foot{margin:6px 2px 0;flex-wrap:wrap}
 .st-foot .link-inline{white-space:nowrap;padding:8px 0}
 .st-text .tw{text-decoration:none}
-.st-text .tw.seen{text-decoration:underline solid var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}

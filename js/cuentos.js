@@ -70,8 +70,8 @@ window.addEventListener('pagehide', rdFlush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') rdFlush(); });
 
 /* ===== Pantallas ===== */
-const rdTap = (s, seen) => String(s).split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
-  .map((p, i) => i % 2 ? `<span class="tw${seen.has(normWord(p)) ? ' seen' : ''}" data-act="rdword" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
+const rdTap = s => String(s).split(/([A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z])/)
+  .map((p, i) => i % 2 ? `<span class="tw" data-act="rdword" data-w="${esc(p)}">${esc(p)}</span>` : esc(p)).join('');
 const rdRow = x => {
   const p = rdPct(x), n = (x.words || []).length;
   return `<button class="lesson ${x.read ? 'done' : ''}" data-act="rdpick" data-t="${x.t}"><span class="lesson-icon">${x.read ? '✅' : p ? '📍' : '📖'}</span><span class="lesson-info grow"><b>${esc(rdTitleOf(x))}</b><span class="muted small">${rdWordsN(rdLen(x))} · ${x.read ? 'Leído' : p ? `Vas en ${p} %` : 'Sin leer'}${n ? ` · 🔖 ${n}` : ''}</span></span>${ic('play', 'sm accent')}</button>`;
@@ -97,11 +97,11 @@ function rdWordsHTML(x) {
 }
 function rdDrawWords(x) { const b = x && $('#rdWords'); if (b) b.innerHTML = rdWordsHTML(x); }
 function rdStoryHTML(x) {
-  const mode = rdMode(), seen = new Set(x.words || []), ss = readerSentences(x.text), left = ss.filter((s, i) => !x.tr[i]).length;
+  const mode = rdMode(), ss = readerSentences(x.text), left = ss.filter((s, i) => !x.tr[i]).length;
   let k = 0;
   const body = mode === 'story'
-    ? `<article class="card st-text">${rdParas(x.text).map(p => `<p>${p.map(s => `<span class="st-s" data-s="${k++}">${rdTap(s, seen)}</span>`).join(' ')}</p>`).join('')}</article>`
-    : `<section class="card rd-text">${ss.map((s, i) => `<div class="rd-s" data-s="${i}"><div class="rd-en">${rdTap(s, seen)}</div>${x.tr[i] ? `<div class="rd-es">${esc(x.tr[i])}</div>` : ''}
+    ? `<article class="card st-text">${rdParas(x.text).map(p => `<p>${p.map(s => `<span class="st-s" data-s="${k++}">${rdTap(s)}</span>`).join(' ')}</p>`).join('')}</article>`
+    : `<section class="card rd-text">${ss.map((s, i) => `<div class="rd-s" data-s="${i}"><div class="rd-en">${rdTap(s)}</div>${x.tr[i] ? `<div class="rd-es">${esc(x.tr[i])}</div>` : ''}
       <div class="rd-btns">${sayBtn(s, 'sm')}<button class="round-btn sm" data-act="say" data-t="${esc(s)}" data-slow="1" aria-label="Lento">🐢</button>${x.tr[i] ? '' : `<button class="add-btn" data-act="rdtr" data-i="${i}">Traducir</button>`}</div></div>`).join('')}</section>
       ${left ? `<button class="btn ghost wide" data-act="rdall">🌐 Traducir todo (${left} ${left === 1 ? 'frase' : 'frases'})</button>` : ''}`;
   return `<div class="lesson-top st-top"><button class="icon-btn" data-act="rdclose" aria-label="Volver a mis cuentos">${ic('x')}</button><b class="grow st-name">${esc(rdTitleOf(x))}</b>${dictBtn('sm')}</div>
@@ -142,7 +142,8 @@ async function readerTranslate(indexes) {
   if (tab === 'reader' && readerText() === cur) render();
 }
 
-/* ===== Palabras tocadas: quedan anotadas en el cuento, con su significado ===== */
+/* ===== Palabras tocadas: quedan anotadas al final del cuento, con su significado.
+   En el texto NO se marcan: a Kata no le gustó verlas resaltadas (3.9.1) ===== */
 async function rdMeaning(w) {   /* qué tarjeta le corresponde: diccionario de la app o, con internet, Wiktionary */
   try { await loadDict(); } catch (e) {}
   const r = DICT ? lookup(w) : null;
@@ -158,12 +159,11 @@ async function rdMeaning(w) {   /* qué tarjeta le corresponde: diccionario de l
   } catch (e) {}
   return null;
 }
-function rdMarkSeen(w, on = true) { document.querySelectorAll('#view .tw').forEach(e => { if (normWord(e.dataset.w || '') === w) e.classList.toggle('seen', on); }); }
 async function rdWord(el) {
   const x = readerText(), raw = el.dataset.w, w = normWord(raw);
   if (x && w) {
     const ws = x.words || (x.words = []);
-    if (!ws.includes(w) && ws.length < ST_WORDS) { ws.push(w); save(); rdMarkSeen(w); rdDrawWords(x); }
+    if (!ws.includes(w) && ws.length < ST_WORDS) { ws.push(w); save(); rdDrawWords(x); }
   }
   await openWord(raw);
   if (!x || !w || !(x.words || []).includes(w) || (x.wm || {})[w]) return;
@@ -197,7 +197,7 @@ const ST_ACTIONS = {
   rdunword: el => {
     const x = readerText(), w = el.dataset.w; if (!x) return;
     x.words = (x.words || []).filter(k => k !== w); if (x.wm) delete x.wm[w];
-    save(); rdMarkSeen(w, false); rdDrawWords(x);
+    save(); rdDrawWords(x);
   },
   rdcard: async el => {
     const x = readerText(); if (!x) return;

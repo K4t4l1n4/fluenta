@@ -489,7 +489,7 @@
     const x = readerText();
     eq(x.words, ['running', 'garden', 'children'], 'no anotó las palabras (sin repetir)');
     ok(x.wm.garden && x.wm.garden[1], 'no guardó el significado'); ok(SHEET.open && SHEET.word === 'children', 'no abrió el significado'); look('hoja de una palabra del cuento'); closeSheet();
-    render(); ok(view().includes('class="tw seen" data-act="rdword" data-w="running"'), 'la palabra tocada no queda marcada'); ok(view().includes('Tus palabras de este cuento (3)')); look('cuento con palabras');
+    render(); ok(!/class="tw[^"]*seen/.test(view()) && view().includes('class="tw" data-act="rdword" data-w="running"'), 'las palabras tocadas no deben quedar marcadas en el texto'); ok(view().includes('Tus palabras de este cuento (3)')); look('cuento con palabras');
     await ACTIONS.rdcard(el({ w: 'garden' })); ok(S.cards[x.wm.garden[0]], 'no creó la tarjeta');
     await ACTIONS.rdcards(); const n = Object.keys(S.cards).length; ok(n >= 3, 'no pasó todas a tarjetas'); await ACTIONS.rdcards(); eq(Object.keys(S.cards).length, n, 'duplicó tarjetas');
     render(); ok(!view().includes('data-act="rdcard"'), 'ofrece agregar tarjetas que ya están'); look('cuento con tarjetas');
